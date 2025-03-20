@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using PassthroughCameraSamples;
 using UnityEngine;
@@ -11,15 +12,21 @@ using UnityEngine.UI;
 
 public class CaptureManager : MonoBehaviour
 {
+    [Header("Camera Settings")]
     [SerializeField] private WebCamTextureManager webCamTextureManager;
-    [SerializeField] private RawImage image;
     [SerializeField] public int jpegQuality = 75;
+
+    [Header("Network Settings")]
     [SerializeField] public string serverAddress = "192.168.1.2";
+    [SerializeField] public int port = 8080;
     [SerializeField] public float reconnectDelay = 1.0f;
     [SerializeField] public float checkStatusDelay = 5.0f;
-    [SerializeField] public int port = 8080;
     [SerializeField] public int maxQueueSize = 1000;
 
+    [Header("References")]
+    [SerializeField] private OVRCameraRig cameraRig; // Reference to OVRCameraRig
+
+    // Private fields
     private string currentIpAddress = "Not Available";
     private bool isEnabled = false;
     private Thread? networkThread;
@@ -27,16 +34,19 @@ public class CaptureManager : MonoBehaviour
     private float timeSinceLastFrame = 0;
     private float timeSinceLastStatusCheck = 0;
 
-    // Add this field to track when recording started
+    // Recoding fields
+    // Track when recording started
     private float recordingStartTime = 0f;
     private int framesCaptured = 0;
-
-    // Frame queue for storing encoded images
-    private Queue<byte[]> frameQueue = new Queue<byte[]>();
+    private Queue<FrameData> frameQueue = new Queue<FrameData>(); // Frame queue for storing encoded images
     private object queueLock = new object();
+    private Texture2D reuseTexture; // Reusable texture to avoid allocation/deallocation overhead
 
-    // Reusable texture to avoid allocation/deallocation overhead
-    private Texture2D reuseTexture;
+    public class FrameData
+    {
+        public byte[] imageData;
+        public string trackingJson;
+    }
 
     private IEnumerator Start()
     {
@@ -56,8 +66,6 @@ public class CaptureManager : MonoBehaviour
         isRunning = true;
         networkThread = new Thread(NetworkLoop);
         networkThread.Start();
-
-        webCamTextureManager.WebCamTexture.requestedFPS = 60;
     }
 
     void Update()
@@ -75,11 +83,21 @@ public class CaptureManager : MonoBehaviour
             // Use GetPixels32 for better performance
             if (isEnabled)
             {
+                // Capture image
                 reuseTexture.SetPixels32(webCamTextureManager.WebCamTexture.GetPixels32());
                 reuseTexture.Apply();
-
-                // Encode to JPEG
                 byte[] encodedFrame = ImageConversion.EncodeToJPG(reuseTexture, jpegQuality);
+
+                // Capture tracking data
+                TrackingData trackingData = CaptureTrackingData();
+                string trackingJson = JsonUtility.ToJson(trackingData);
+
+                // Create frame data object with both image and tracking data
+                FrameData frameData = new FrameData
+                {
+                    imageData = encodedFrame,
+                    trackingJson = trackingJson
+                };
 
                 // Add frame to queue
                 lock (queueLock)
@@ -93,7 +111,7 @@ public class CaptureManager : MonoBehaviour
 
                     // Increment frames captured counter
                     framesCaptured++;
-                    frameQueue.Enqueue(encodedFrame);
+                    frameQueue.Enqueue(frameData);
                     Debug.Log($"VIDEOSTREAM: Queued new frame. Queue size: {frameQueue.Count}");
                 }
 
@@ -124,6 +142,44 @@ public class CaptureManager : MonoBehaviour
         }
     }
 
+    private TrackingData CaptureTrackingData()
+    {
+        TrackingData data = new TrackingData();
+
+        // Set timestamp
+        data.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Get head pose
+        Pose headPose = PassthroughCameraUtils.GetCameraPoseInWorld(PassthroughCameraEye.Left);
+        data.headPosition = new TrackingData.Vector3Serializable(headPose.position);
+        data.headRotation = new TrackingData.QuaternionSerializable(headPose.rotation);
+
+        // Other appraoch
+        // Transform centerEye = cameraRig.centerEyeAnchor;
+        // data.headPosition = new TrackingData.Vector3Serializable(centerEye.position);
+        // data.headRotation = new TrackingData.QuaternionSerializable(centerEye.rotation);
+
+        // Get hand data from OVRInput (simplified - doesn't require OVRHand components)
+        
+        data.leftHand = new TrackingData.HandData
+        {
+            isTracked = OVRInput.GetControllerPositionTracked(OVRInput.Controller.LHand),
+            position = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(OVRInput.Controller.LHand)),
+            rotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(OVRInput.Controller.LHand)),
+            pinchStrength = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, OVRInput.Controller.LHand)
+        };
+
+        data.rightHand = new TrackingData.HandData
+        {
+            isTracked = OVRInput.GetControllerPositionTracked(OVRInput.Controller.RHand),
+            position = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(OVRInput.Controller.RHand)),
+            rotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(OVRInput.Controller.RHand)),
+            pinchStrength = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, OVRInput.Controller.RHand)
+        };
+
+        return data;
+    }
+
     private void NetworkLoop()
     {
         while (isRunning)
@@ -140,7 +196,7 @@ public class CaptureManager : MonoBehaviour
                 {
                     while (isRunning && client.Connected)
                     {
-                        byte[] frameData = null;
+                        FrameData frameData = null;
 
                         // Try to get the oldest frame from queue
                         lock (queueLock)
@@ -156,15 +212,33 @@ public class CaptureManager : MonoBehaviour
                         {
                             try
                             {
-                                Debug.Log($"VIDEOSTREAM: Sending frame of size {frameData.Length}");
+                                Debug.Log($"VIDEOSTREAM: Sending frame of size {frameData.imageData.Length} bytes");
 
-                                // Send frame size header
-                                var sizeBytes = BitConverter.GetBytes(frameData.Length);
-                                stream.Write(sizeBytes, 0, sizeBytes.Length);
+                                // Send tracking data length
+                                byte[] trackingBytes = Encoding.UTF8.GetBytes(frameData.trackingJson);
+                                byte[] trackingLengthBytes = BitConverter.GetBytes(trackingBytes.Length);
+                                stream.Write(trackingLengthBytes, 0, trackingLengthBytes.Length);
 
-                                // Send frame data
-                                stream.Write(frameData, 0, frameData.Length);
+                                // Send tracking data
+                                stream.Write(trackingBytes, 0, trackingBytes.Length);
+
+                                // Send image data length
+                                byte[] imageLengthBytes = BitConverter.GetBytes(frameData.imageData.Length);
+                                stream.Write(imageLengthBytes, 0, imageLengthBytes.Length);
+
+                                // Send image data
+                                stream.Write(frameData.imageData, 0, frameData.imageData.Length);
                                 stream.Flush();
+
+                                Debug.Log($"VIDEOSTREAM: Sent frame with {frameData.imageData.Length} bytes of image and {trackingBytes.Length} bytes of tracking data");
+
+                                // // Send frame size header
+                                // var sizeBytes = BitConverter.GetBytes(frameData.Length);
+                                // stream.Write(sizeBytes, 0, sizeBytes.Length);
+
+                                // // Send frame data
+                                // stream.Write(frameData, 0, frameData.Length);
+                                // stream.Flush();
                             }
                             catch (Exception ex)
                             {
