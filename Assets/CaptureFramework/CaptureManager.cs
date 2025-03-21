@@ -44,12 +44,10 @@ public class CaptureManager : MonoBehaviour
     // Recoding fields
     // Track when recording started
     private float recordingStartTime = 0f;
+    private float recordingEndTime = 0f;
     private int framesCaptured = 0;
     private Queue<FrameData> frameQueue = new Queue<FrameData>(); // Frame queue for storing encoded images
     private object queueLock = new object();
-    // Add a flag to indicate when a recording summary should be sent
-    private bool sendRecordingSummary = false;
-    private RecordingSummary pendingRecordingSummary = null;
     private Texture2D reuseTexture; // Reusable texture to avoid allocation/deallocation overhead
 
     private IEnumerator Start()
@@ -103,6 +101,9 @@ public class CaptureManager : MonoBehaviour
                     trackingJson = trackingJson
                 };
 
+                // Increment frames captured counter
+                framesCaptured++;
+
                 // Add frame to queue
                 lock (queueLock)
                 {
@@ -113,8 +114,6 @@ public class CaptureManager : MonoBehaviour
                         Debug.LogWarning("VIDEOSTREAM: Frame queue full, dropping oldest frame");
                     }
 
-                    // Increment frames captured counter
-                    framesCaptured++;
                     frameQueue.Enqueue(frameData);
                     Debug.Log($"VIDEOSTREAM: Queued new frame. Queue size: {frameQueue.Count}");
                 }
@@ -135,19 +134,7 @@ public class CaptureManager : MonoBehaviour
         {
             if (isEnabled)
             {
-                float recordingDuration = Time.time - recordingStartTime;
-                float avgFPS = framesCaptured / recordingDuration;
-                Debug.Log($"VIDEOSTREAM: Recording stopped. Duration: {recordingDuration:F2} seconds, Frames captured: {framesCaptured}, Average FPS: {avgFPS:F2}");
-
-                pendingRecordingSummary = new RecordingSummary
-                {
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    duration = recordingDuration,
-                    framesCount = framesCaptured,
-                    averageFPS = avgFPS
-                };
-
-                sendRecordingSummary = true;
+                recordingEndTime = Time.time;
             }
 
             isEnabled = false;
@@ -251,43 +238,8 @@ public class CaptureManager : MonoBehaviour
                 {
                     while (isRunning && client.Connected)
                     {
-                        // Check if we need to send recording summary
-                        if (sendRecordingSummary && pendingRecordingSummary != null)
-                        {
-                            try
-                            {
-                                // Send message type (0 = recording summary)
-                                byte[] messageType = new byte[] { 0 };
-                                stream.Write(messageType, 0, messageType.Length);
-
-                                // Convert summary to JSON
-                                string summaryJson = JsonUtility.ToJson(pendingRecordingSummary);
-                                byte[] summaryBytes = Encoding.UTF8.GetBytes(summaryJson);
-
-                                // Send summary data length
-                                byte[] summaryLengthBytes = BitConverter.GetBytes(summaryBytes.Length);
-                                stream.Write(summaryLengthBytes, 0, summaryLengthBytes.Length);
-
-                                // Send summary data
-                                stream.Write(summaryBytes, 0, summaryBytes.Length);
-                                stream.Flush();
-
-                                Debug.Log($"VIDEOSTREAM: Sent recording summary. Duration: {pendingRecordingSummary.duration:F2}s, Frames: {pendingRecordingSummary.framesCount}, Avg FPS: {pendingRecordingSummary.averageFPS:F2}");
-
-                                // Reset flag and data
-                                sendRecordingSummary = false;
-                                pendingRecordingSummary = null;
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.LogError($"VIDEOSTREAM: Error sending recording summary: {ex.Message}");
-                                break;
-                            }
-                        }
-
 
                         FrameData frameData = null;
-
                         // Try to get the oldest frame from queue
                         lock (queueLock)
                         {
@@ -325,14 +277,6 @@ public class CaptureManager : MonoBehaviour
                                 stream.Flush();
 
                                 Debug.Log($"VIDEOSTREAM: Sent frame with {frameData.imageData.Length} bytes of image and {trackingBytes.Length} bytes of tracking data");
-
-                                // // Send frame size header
-                                // var sizeBytes = BitConverter.GetBytes(frameData.Length);
-                                // stream.Write(sizeBytes, 0, sizeBytes.Length);
-
-                                // // Send frame data
-                                // stream.Write(frameData, 0, frameData.Length);
-                                // stream.Flush();
                             }
                             catch (Exception ex)
                             {
