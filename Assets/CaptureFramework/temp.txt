@@ -1,0 +1,82 @@
+Approach 3: Direct OVRPlugin Access for Maximum Data
+
+private TrackingData.HandData CaptureHandData(OVRHand ovrHand, OVRSkeleton ovrSkeleton, OVRInput.Controller controller)
+{
+    TrackingData.HandData handData = new TrackingData.HandData();
+
+    // Basic tracking data
+    handData.isTracked = OVRInput.GetControllerPositionTracked(controller);
+    handData.wristPosition = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
+    handData.wristRotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
+
+    // Determine which hand we're working with
+    OVRPlugin.Hand ovrPluginHand = (controller == OVRInput.Controller.LHand) ? 
+        OVRPlugin.Hand.HandLeft : OVRPlugin.Hand.HandRight;
+    
+    // Check if hand tracking is enabled
+    if (OVRPlugin.GetHandTrackingEnabled())
+    {
+        OVRPlugin.HandState handState = new OVRPlugin.HandState();
+        
+        // Try to get hand state directly from OVRPlugin
+        if (OVRPlugin.GetHandState(OVRPlugin.Step.Render, ovrPluginHand, ref handState) && 
+            (handState.Status & OVRPlugin.HandStatus.HandTracked) != 0)
+        {
+            handData.hasSkeletalData = true;
+            
+            // You can add these fields to your HandData class
+            handData.handScale = handState.HandScale;
+            handData.handConfidenceValue = handState.HandConfidence;
+            
+            // Process bone data
+            int boneCount = (int)OVRPlugin.BoneId.Max;
+            handData.bones = new TrackingData.HandData.BoneData[boneCount];
+            handData.confidenceValues = new float[boneCount];
+            
+            for (int i = 0; i < boneCount; i++)
+            {
+                // Convert OVRPlugin.Posef to Unity types
+                OVRPlugin.Posef pose = handState.BoneRotations[i];
+                Vector3 position = new Vector3(pose.Position.x, pose.Position.y, pose.Position.z);
+                Quaternion rotation = new Quaternion(
+                    pose.Orientation.x,
+                    pose.Orientation.y,
+                    pose.Orientation.z,
+                    pose.Orientation.w);
+                
+                handData.bones[i] = new TrackingData.HandData.BoneData
+                {
+                    id = i,
+                    position = new TrackingData.Vector3Serializable(position),
+                    rotation = new TrackingData.QuaternionSerializable(rotation)
+                };
+                
+                // Store confidence (if your SDK version supports it)
+                handData.confidenceValues[i] = handState.BoneConfidences != null && i < handState.BoneConfidences.Length ? 
+                    handState.BoneConfidences[i] : 1.0f;
+            }
+            
+            // Get finger state information 
+            handData.fingerPinchStrengths = new float[5];
+            for (int i = 0; i < 5; i++)
+            {
+                OVRPlugin.HandFingerPinch fingerPinch = (OVRPlugin.HandFingerPinch)(1 << i);
+                handData.fingerPinchStrengths[i] = (handState.Pinches & fingerPinch) != 0 ? 1.0f : 0.0f;
+            }
+        }
+        else
+        {
+            handData.hasSkeletalData = false;
+            handData.bones = new TrackingData.HandData.BoneData[0];
+            handData.confidenceValues = new float[0];
+        }
+    }
+    else
+    {
+        handData.hasSkeletalData = false;
+        handData.bones = new TrackingData.HandData.BoneData[0];
+        handData.confidenceValues = new float[0];
+    }
+    
+    return handData;
+}

@@ -26,6 +26,13 @@ public class CaptureManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private OVRCameraRig cameraRig; // Reference to OVRCameraRig
 
+    [Header("Hand Tracking")]
+    [SerializeField] private OVRHand leftOVRHand;  // Reference to left OVRHand
+    [SerializeField] private OVRHand rightOVRHand; // Reference to right OVRHand
+    [SerializeField] private OVRSkeleton leftOVRSkeleton;  // Reference to left OVRSkeleton
+    [SerializeField] private OVRSkeleton rightOVRSkeleton; // Reference to right OVRSkeleton
+
+
     // Private fields
     private string currentIpAddress = "Not Available";
     private bool isEnabled = false;
@@ -121,16 +128,14 @@ public class CaptureManager : MonoBehaviour
         // Toggle streaming with button press
         if (OVRInput.GetDown(OVRInput.Button.One))
         {
-            isEnabled = true;
-            Debug.Log($"VIDEOSTREAM: Streaming is now {isEnabled}");
-
             recordingStartTime = Time.time;
             framesCaptured = 0;
+            isEnabled = true;
+            Debug.Log($"VIDEOSTREAM: Streaming is now {isEnabled}");
         }
 
         if (OVRInput.GetDown(OVRInput.Button.Two))
         {
-
             if (isEnabled)
             {
                 float recordingDuration = Time.time - recordingStartTime;
@@ -146,6 +151,9 @@ public class CaptureManager : MonoBehaviour
     {
         TrackingData data = new TrackingData();
 
+        // Set frame number
+        data.frame = framesCaptured;
+
         // Set timestamp
         data.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -154,30 +162,68 @@ public class CaptureManager : MonoBehaviour
         data.headPosition = new TrackingData.Vector3Serializable(headPose.position);
         data.headRotation = new TrackingData.QuaternionSerializable(headPose.rotation);
 
-        // Other appraoch
-        // Transform centerEye = cameraRig.centerEyeAnchor;
-        // data.headPosition = new TrackingData.Vector3Serializable(centerEye.position);
-        // data.headRotation = new TrackingData.QuaternionSerializable(centerEye.rotation);
+        // Capture left hand data with skeletal tracking
+        data.leftHand = CaptureHandData(leftOVRHand, leftOVRSkeleton, OVRInput.Controller.LHand);
 
-        // Get hand data from OVRInput (simplified - doesn't require OVRHand components)
-        
-        data.leftHand = new TrackingData.HandData
-        {
-            isTracked = OVRInput.GetControllerPositionTracked(OVRInput.Controller.LHand),
-            position = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(OVRInput.Controller.LHand)),
-            rotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(OVRInput.Controller.LHand)),
-            pinchStrength = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, OVRInput.Controller.LHand)
-        };
-
-        data.rightHand = new TrackingData.HandData
-        {
-            isTracked = OVRInput.GetControllerPositionTracked(OVRInput.Controller.RHand),
-            position = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(OVRInput.Controller.RHand)),
-            rotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(OVRInput.Controller.RHand)),
-            pinchStrength = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, OVRInput.Controller.RHand)
-        };
+        // Capture right hand data with skeletal tracking
+        data.rightHand = CaptureHandData(rightOVRHand, rightOVRSkeleton, OVRInput.Controller.RHand);
 
         return data;
+    }
+
+    private TrackingData.HandData CaptureHandData(OVRHand ovrHand, OVRSkeleton ovrSkeleton, OVRInput.Controller controller)
+    {
+        TrackingData.HandData handData = new TrackingData.HandData();
+
+        // Basic tracking data
+        handData.isTracked = OVRInput.GetControllerPositionTracked(controller);
+        handData.wristPosition = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
+        handData.wristRotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
+        Debug.Log($"Wrist Position: {handData.wristPosition.x}, {handData.wristPosition.y}, {handData.wristPosition.z}");   
+
+        // Check if we have access to skeletal data
+        if (ovrHand != null && ovrSkeleton != null && ovrHand.IsTracked && ovrSkeleton.IsInitialized && ovrSkeleton.Bones.Count > 0)
+        {
+            handData.hasSkeletalData = true;
+
+            // Get bone data
+            int boneCount = ovrSkeleton.Bones.Count;
+            Debug.Log($"VIDEOSTREAM: Capturing {boneCount} bones for {controller}");
+
+            handData.bones = new TrackingData.HandData.BoneData[boneCount];
+            handData.fingerPinchStrengths = new float[5];
+            handData.fingerPinchConfidence = new float[5];
+
+            for (int i = 0; i < boneCount; i++)
+            {
+                OVRBone bone = ovrSkeleton.Bones[i];
+                Vector3 position = bone.Transform.localPosition;
+                Quaternion rotation = bone.Transform.localRotation;
+
+                // Create bone data
+                handData.bones[i] = new TrackingData.HandData.BoneData
+                {
+                    id = i,
+                    position = new TrackingData.Vector3Serializable(position),
+                    rotation = new TrackingData.QuaternionSerializable(rotation)
+                };
+            }
+            for (int i = 0; i < 5; i++)
+            {
+                handData.fingerPinchStates[i] = ovrHand.GetFingerIsPinching((OVRHand.HandFinger)i);
+                handData.fingerPinchStrengths[i] = ovrHand.GetFingerPinchStrength((OVRHand.HandFinger)i);
+                handData.fingerPinchConfidence[i] = (float)ovrHand.GetFingerConfidence((OVRHand.HandFinger)i);
+            }
+        }
+        else
+        {
+            handData.hasSkeletalData = false;
+            handData.bones = new TrackingData.HandData.BoneData[0];
+            handData.fingerPinchStrengths = new float[0];
+            handData.fingerPinchConfidence = new float[0];
+        }
+
+        return handData;
     }
 
     private void NetworkLoop()

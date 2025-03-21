@@ -4,6 +4,7 @@ using UnityEngine;
 [Serializable]
 public class TrackingData
 {
+    public int frame;
     public long timestamp;
     public Vector3Serializable headPosition;
     public QuaternionSerializable headRotation;
@@ -14,9 +15,24 @@ public class TrackingData
     public class HandData
     {
         public bool isTracked;
-        public Vector3Serializable position;
-        public QuaternionSerializable rotation;
-        public float pinchStrength;
+        public Vector3Serializable wristPosition;
+        public QuaternionSerializable wristRotation;
+
+        // New skeletal data
+        public bool hasSkeletalData;
+        public BoneData[] bones;
+        // humb, Index, Middle, Ring, Pinky,
+        public bool[] fingerPinchStates; // Pinch state per finger
+        public float[] fingerPinchStrengths; // Pinch strength per finger
+        public float[] fingerPinchConfidence; // Pinch strength confidence per finger
+
+        [Serializable]
+        public struct BoneData
+        {
+            public int id;
+            public Vector3Serializable position;
+            public QuaternionSerializable rotation;
+        }
     }
 
     [Serializable]
