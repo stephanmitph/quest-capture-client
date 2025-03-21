@@ -47,13 +47,10 @@ public class CaptureManager : MonoBehaviour
     private int framesCaptured = 0;
     private Queue<FrameData> frameQueue = new Queue<FrameData>(); // Frame queue for storing encoded images
     private object queueLock = new object();
+    // Add a flag to indicate when a recording summary should be sent
+    private bool sendRecordingSummary = false;
+    private RecordingSummary pendingRecordingSummary = null;
     private Texture2D reuseTexture; // Reusable texture to avoid allocation/deallocation overhead
-
-    public class FrameData
-    {
-        public byte[] imageData;
-        public string trackingJson;
-    }
 
     private IEnumerator Start()
     {
@@ -139,7 +136,18 @@ public class CaptureManager : MonoBehaviour
             if (isEnabled)
             {
                 float recordingDuration = Time.time - recordingStartTime;
-                Debug.Log($"VIDEOSTREAM: Recording stopped. Duration: {recordingDuration:F2} seconds, Frames captured: {framesCaptured}, Average FPS: {(framesCaptured / recordingDuration):F2}");
+                float avgFPS = framesCaptured / recordingDuration;
+                Debug.Log($"VIDEOSTREAM: Recording stopped. Duration: {recordingDuration:F2} seconds, Frames captured: {framesCaptured}, Average FPS: {avgFPS:F2}");
+
+                pendingRecordingSummary = new RecordingSummary
+                {
+                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    duration = recordingDuration,
+                    framesCount = framesCaptured,
+                    averageFPS = avgFPS
+                };
+
+                sendRecordingSummary = true;
             }
 
             isEnabled = false;
@@ -179,7 +187,7 @@ public class CaptureManager : MonoBehaviour
         handData.isTracked = OVRInput.GetControllerPositionTracked(controller);
         handData.wristPosition = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
         handData.wristRotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
-        Debug.Log($"Wrist Position: {handData.wristPosition.x}, {handData.wristPosition.y}, {handData.wristPosition.z}");   
+        Debug.Log($"Wrist Position: {handData.wristPosition.x}, {handData.wristPosition.y}, {handData.wristPosition.z}");
 
         // Check if we have access to skeletal data
         if (ovrHand != null && ovrSkeleton != null && ovrHand.IsTracked && ovrSkeleton.IsInitialized && ovrSkeleton.Bones.Count > 0)
@@ -191,6 +199,7 @@ public class CaptureManager : MonoBehaviour
             Debug.Log($"VIDEOSTREAM: Capturing {boneCount} bones for {controller}");
 
             handData.bones = new TrackingData.HandData.BoneData[boneCount];
+            handData.fingerPinchStates = new bool[5];
             handData.fingerPinchStrengths = new float[5];
             handData.fingerPinchConfidence = new float[5];
 
@@ -242,6 +251,41 @@ public class CaptureManager : MonoBehaviour
                 {
                     while (isRunning && client.Connected)
                     {
+                        // Check if we need to send recording summary
+                        if (sendRecordingSummary && pendingRecordingSummary != null)
+                        {
+                            try
+                            {
+                                // Send message type (0 = recording summary)
+                                byte[] messageType = new byte[] { 0 };
+                                stream.Write(messageType, 0, messageType.Length);
+
+                                // Convert summary to JSON
+                                string summaryJson = JsonUtility.ToJson(pendingRecordingSummary);
+                                byte[] summaryBytes = Encoding.UTF8.GetBytes(summaryJson);
+
+                                // Send summary data length
+                                byte[] summaryLengthBytes = BitConverter.GetBytes(summaryBytes.Length);
+                                stream.Write(summaryLengthBytes, 0, summaryLengthBytes.Length);
+
+                                // Send summary data
+                                stream.Write(summaryBytes, 0, summaryBytes.Length);
+                                stream.Flush();
+
+                                Debug.Log($"VIDEOSTREAM: Sent recording summary. Duration: {pendingRecordingSummary.duration:F2}s, Frames: {pendingRecordingSummary.framesCount}, Avg FPS: {pendingRecordingSummary.averageFPS:F2}");
+
+                                // Reset flag and data
+                                sendRecordingSummary = false;
+                                pendingRecordingSummary = null;
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogError($"VIDEOSTREAM: Error sending recording summary: {ex.Message}");
+                                break;
+                            }
+                        }
+
+
                         FrameData frameData = null;
 
                         // Try to get the oldest frame from queue
@@ -258,6 +302,10 @@ public class CaptureManager : MonoBehaviour
                         {
                             try
                             {
+                                // Send message type (1 = frame data)
+                                byte[] messageType = new byte[] { 1 };
+                                stream.Write(messageType, 0, messageType.Length);
+
                                 Debug.Log($"VIDEOSTREAM: Sending frame of size {frameData.imageData.Length} bytes");
 
                                 // Send tracking data length
