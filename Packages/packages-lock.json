@@ -19,6 +19,15 @@
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
+    "com.meta.xr.sdk.haptics": {
+      "version": "74.0.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.meta.xr.sdk.core": "74.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.meta.xr.sdk.interaction": {
       "version": "74.0.0",
       "depth": 1,
@@ -47,6 +56,13 @@
         "com.unity.editorcoroutines": "1.0.0"
       },
       "url": "https://packages.unity.com"
+    },
+    "com.nobi.roundedcorners": {
+      "version": "https://github.com/kirevdokimov/Unity-UI-Rounded-Corners.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "33135342e868201eb0d4cef821ecab90caca373e"
     },
     "com.unity.2d.sprite": {
       "version": "1.0.0",

@@ -8,6 +8,18 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/MainScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 0
+    path: "Assets/Samples/Meta XR Interaction \u200BSDK/74.0.1/Example Scenes/RayExamples.unity"
+    guid: 1b2d3f90c0f50b94cb910c66c773d00d
+  - enabled: 0
+    path: "Assets/Samples/Meta XR Interaction \u200BSDK/74.0.1/Example Scenes/UISetExamples.unity"
+    guid: 07e3686372a704147b219707ee3c6f62
+  - enabled: 0
+    path: "Assets/Samples/Meta XR Interaction \u200BSDK/74.0.1/Example Scenes/ComprehensiveRigExample.unity"
+    guid: 2efe93cb8972cae439bfba2dcd4165f0
+  - enabled: 0
+    path: "Assets/Samples/Meta XR Interaction \u200BSDK/74.0.1/Feature Scenes/RayCanvasFlat.unity"
+    guid: 7f5c84932632e2a4eb3d90db823935f1
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: f4b40e0e4017e4fd69cbe9cc021e6a2b, type: 2}

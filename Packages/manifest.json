@@ -2,8 +2,10 @@
   "dependencies": {
     "com.meta.xr.mrutilitykit": "74.0.0",
     "com.meta.xr.sdk.core": "74.0.0",
+    "com.meta.xr.sdk.haptics": "74.0.0",
     "com.meta.xr.sdk.interaction.ovr": "74.0.1",
     "com.meta.xr.simulator": "74.0.0",
+    "com.nobi.roundedcorners": "https://github.com/kirevdokimov/Unity-UI-Rounded-Corners.git",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.ai.navigation": "2.0.6",
     "com.unity.collab-proxy": "2.7.1",

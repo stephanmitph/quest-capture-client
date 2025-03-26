@@ -32,6 +32,10 @@ public class CaptureManager : MonoBehaviour
     [SerializeField] private OVRSkeleton leftOVRSkeleton;  // Reference to left OVRSkeleton
     [SerializeField] private OVRSkeleton rightOVRSkeleton; // Reference to right OVRSkeleton
 
+    public void ConsoleLog(string message)
+    {
+        Console.WriteLine(message);
+    }
 
     // Private fields
     private string currentIpAddress = "Not Available";
