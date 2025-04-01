@@ -20,6 +20,9 @@ EditorBuildSettings:
   - enabled: 0
     path: "Assets/Samples/Meta XR Interaction \u200BSDK/74.0.1/Feature Scenes/RayCanvasFlat.unity"
     guid: 7f5c84932632e2a4eb3d90db823935f1
+  - enabled: 0
+    path: Assets/Samples/Meta XR Core SDK/74.0.0/Sample Scenes/VirtualKeyboard.unity
+    guid: c9684441ee1da1244a223118fdaa5d13
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: f4b40e0e4017e4fd69cbe9cc021e6a2b, type: 2}

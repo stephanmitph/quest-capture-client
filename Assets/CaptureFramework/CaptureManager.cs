@@ -25,17 +25,13 @@ public class CaptureManager : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private OVRCameraRig cameraRig; // Reference to OVRCameraRig
+    [SerializeField] private MenuController menuController; // Reference to MenuController 
 
     [Header("Hand Tracking")]
     [SerializeField] private OVRHand leftOVRHand;  // Reference to left OVRHand
     [SerializeField] private OVRHand rightOVRHand; // Reference to right OVRHand
     [SerializeField] private OVRSkeleton leftOVRSkeleton;  // Reference to left OVRSkeleton
     [SerializeField] private OVRSkeleton rightOVRSkeleton; // Reference to right OVRSkeleton
-
-    public void ConsoleLog(string message)
-    {
-        Console.WriteLine(message);
-    }
 
     // Private fields
     private string currentIpAddress = "Not Available";
@@ -45,10 +41,11 @@ public class CaptureManager : MonoBehaviour
     private float timeSinceLastFrame = 0;
     private float timeSinceLastStatusCheck = 0;
 
-    // Recoding fields
+    // Recording fields
     // Track when recording started
     private float recordingStartTime = 0f;
     private float recordingEndTime = 0f;
+    private float maxRecordingTime = 30f;
     private int framesCaptured = 0;
     private Queue<FrameData> frameQueue = new Queue<FrameData>(); // Frame queue for storing encoded images
     private object queueLock = new object();
@@ -74,6 +71,15 @@ public class CaptureManager : MonoBehaviour
         networkThread.Start();
     }
 
+    public void StartRecording(float time = 30)
+    {
+        maxRecordingTime = time;
+        recordingStartTime = Time.time;
+        framesCaptured = 0;
+        isEnabled = true;
+        Debug.Log($"VIDEOSTREAM: Streaming is now {isEnabled}");
+    }
+
     void Update()
     {
         timeSinceLastFrame += Time.deltaTime;
@@ -83,7 +89,6 @@ public class CaptureManager : MonoBehaviour
         {
             Console.WriteLine("Frame Updated, current FPS: " + 1 / timeSinceLastFrame);
             timeSinceLastFrame = 0;
-            // Log queue size
             Debug.Log($"VIDEOSTREAM: Queue size: {frameQueue.Count}");
 
             // Use GetPixels32 for better performance
@@ -125,24 +130,12 @@ public class CaptureManager : MonoBehaviour
             }
         }
 
-        // Toggle streaming with button press
-        if (OVRInput.GetDown(OVRInput.Button.One))
+        // Stop recordin if any button on is pressed or after 30 seconds
+        if (isEnabled && (OVRInput.GetDown(OVRInput.Button.Any) || Time.time - recordingStartTime > maxRecordingTime))
         {
-            recordingStartTime = Time.time;
-            framesCaptured = 0;
-            isEnabled = true;
-            Debug.Log($"VIDEOSTREAM: Streaming is now {isEnabled}");
-        }
-
-        if (OVRInput.GetDown(OVRInput.Button.Two))
-        {
-            if (isEnabled)
-            {
-                recordingEndTime = Time.time;
-            }
-
+            recordingEndTime = Time.time;
             isEnabled = false;
-            Debug.Log($"VIDEOSTREAM: Streaming is now {isEnabled}");
+            menuController.StopRecording();
         }
     }
 

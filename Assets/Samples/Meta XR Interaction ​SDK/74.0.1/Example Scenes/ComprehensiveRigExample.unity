@@ -17884,23 +17884,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7123553540386030360, guid: ab9e0a62c7bd05742b82217187604b90, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7123553540386030360, guid: ab9e0a62c7bd05742b82217187604b90, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7123553540386030360, guid: ab9e0a62c7bd05742b82217187604b90, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 200
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7123553540386030360, guid: ab9e0a62c7bd05742b82217187604b90, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7123553540386030360, guid: ab9e0a62c7bd05742b82217187604b90, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -6
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7362088438272524674, guid: ab9e0a62c7bd05742b82217187604b90, type: 3}
       propertyPath: m_AnchorMax.y
