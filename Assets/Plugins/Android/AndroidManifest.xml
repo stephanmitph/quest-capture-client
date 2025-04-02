@@ -16,6 +16,7 @@
     <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|quest3s" tools:replace="android:value" />
     <meta-data android:name="com.oculus.handtracking.frequency" android:value="MAX" />
     <meta-data android:name="com.oculus.handtracking.version" android:value="V2.0" />
+    <meta-data android:name="com.oculus.trade_cpu_for_gpu_amount" android:value="-1" />
   </application>
   <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
   <uses-feature android:name="oculus.software.handtracking" android:required="false" />
@@ -29,4 +30,5 @@
   <uses-feature android:name="com.oculus.feature.RENDER_MODEL" />
   <uses-permission android:name="com.oculus.permission.RENDER_MODEL" />
   <uses-feature android:name="com.oculus.feature.VIRTUAL_KEYBOARD" android:required="true" />
+  <uses-feature android:name="oculus.software.overlay_keyboard" android:required="false" />
 </manifest>

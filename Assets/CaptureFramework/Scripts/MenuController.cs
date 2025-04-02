@@ -9,17 +9,14 @@ public class MenuController : MonoBehaviour
     private Vector3 targetPosition;
     private float distanceFromCamera;
 
-    private int selectedCollectionID = 0;
-    public TMP_Dropdown collectionIdDropdown;
-
     [SerializeField] private CaptureManager captureManager;
-    // References to the pages
+    [Header("Menu Pages")]
     [SerializeField] public GameObject welcomeMenu;
     [SerializeField] public GameObject mainMenu;
     [SerializeField] public GameObject recordMenu;
     [SerializeField] public GameObject streamMenu;
     [SerializeField] public GameObject processingMenu;
-    [SerializeField] public GameObject optionsMenu;
+    [SerializeField] public GameObject settingsMenu;
 
     private bool isRecording = false;
     private bool isWaitingForProcessingFinished = false;
@@ -33,13 +30,17 @@ public class MenuController : MonoBehaviour
         RecordMenu = 2,
         StreamMenu = 3,
         ProcessingMenu = 4,
-        OptionsMenu = 5
+        SettingsMenu = 5
 
     }
+    void Awake()
+    {
+        distanceFromCamera = transform.position.z;
+    }
+
     void Start()
     {
         ShowMenu((int)Menu.WelcomeMenu);
-        distanceFromCamera = transform.position.z;
     }
 
     void UpdateCanvas()
@@ -95,7 +96,7 @@ public class MenuController : MonoBehaviour
         recordMenu.SetActive(false);
         streamMenu.SetActive(false);
         processingMenu.SetActive(false);
-        optionsMenu.SetActive(false);
+        settingsMenu.SetActive(false);
 
         // Show the selected menu
         switch ((Menu)menuId)
@@ -115,8 +116,8 @@ public class MenuController : MonoBehaviour
             case Menu.ProcessingMenu:
                 processingMenu.SetActive(true);
                 break;
-            case Menu.OptionsMenu:
-                optionsMenu.SetActive(true);
+            case Menu.SettingsMenu:
+                settingsMenu.SetActive(true);
                 break;
         }
     }
@@ -133,12 +134,5 @@ public class MenuController : MonoBehaviour
         isWaitingForProcessingFinished = true;
         isRecording = false;
         ShowMenu((int)Menu.ProcessingMenu);
-    }
-
-
-    public void SelectCollectionIDChanged()
-    {
-        Debug.Log("Selected Dropdown: " + collectionIdDropdown.value);
-        selectedCollectionID = collectionIdDropdown.value;
     }
 }

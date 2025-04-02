@@ -1,14 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using PassthroughCameraSamples;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class CaptureManager : MonoBehaviour
 {
@@ -21,11 +18,12 @@ public class CaptureManager : MonoBehaviour
     [SerializeField] public int port = 8080;
     [SerializeField] public float reconnectDelay = 1.0f;
     [SerializeField] public float checkStatusDelay = 5.0f;
-    [SerializeField] public int maxQueueSize = 1000;
+    [SerializeField] public int maxQueueSize = 5000;
 
     [Header("References")]
     [SerializeField] private OVRCameraRig cameraRig; // Reference to OVRCameraRig
     [SerializeField] private MenuController menuController; // Reference to MenuController 
+    [SerializeField] private Canvas recordingOverlay; // Reference to RecordingOverlay 
 
     [Header("Hand Tracking")]
     [SerializeField] private OVRHand leftOVRHand;  // Reference to left OVRHand
@@ -47,13 +45,15 @@ public class CaptureManager : MonoBehaviour
     private float recordingEndTime = 0f;
     private float maxRecordingTime = 30f;
     private int framesCaptured = 0;
-    public bool isProcessing = false;
+    [HideInInspector] public bool isProcessing = false;
     private Queue<FrameData> frameQueue = new Queue<FrameData>(); // Frame queue for storing encoded images
     private object queueLock = new object();
     private Texture2D reuseTexture; // Reusable texture to avoid allocation/deallocation overhead
 
     private IEnumerator Start()
     {
+        recordingOverlay.gameObject.SetActive(false);
+
         while (webCamTextureManager.WebCamTexture == null)
         {
             yield return null;
@@ -80,7 +80,7 @@ public class CaptureManager : MonoBehaviour
         recordingStartTime = Time.time;
         framesCaptured = 0;
         isEnabled = true;
-        Debug.Log($"VIDEOSTREAM: Streaming is now {isEnabled}");
+        recordingOverlay.gameObject.SetActive(true);
     }
 
     void Update()
@@ -88,57 +88,51 @@ public class CaptureManager : MonoBehaviour
         timeSinceLastFrame += Time.deltaTime;
 
         // Process new frame if available
-        if (webCamTextureManager.WebCamTexture.didUpdateThisFrame)
+        if (isEnabled && webCamTextureManager.WebCamTexture.didUpdateThisFrame)
         {
             Console.WriteLine("Frame Updated, current FPS: " + 1 / timeSinceLastFrame);
-            timeSinceLastFrame = 0;
             Debug.Log($"VIDEOSTREAM: Queue size: {frameQueue.Count}");
+            timeSinceLastFrame = 0;
 
-            // Use GetPixels32 for better performance
-            if (isEnabled)
+            // Capture image
+            reuseTexture.SetPixels32(webCamTextureManager.WebCamTexture.GetPixels32());
+            reuseTexture.Apply();
+            byte[] encodedFrame = ImageConversion.EncodeToJPG(reuseTexture, jpegQuality);
+
+            // Capture tracking data
+            TrackingData trackingData = CaptureTrackingData();
+            string trackingJson = JsonUtility.ToJson(trackingData);
+
+            // Create frame data object with both image and tracking data
+            FrameData frameData = new FrameData
             {
-                // Capture image
-                reuseTexture.SetPixels32(webCamTextureManager.WebCamTexture.GetPixels32());
-                reuseTexture.Apply();
-                byte[] encodedFrame = ImageConversion.EncodeToJPG(reuseTexture, jpegQuality);
+                imageData = encodedFrame,
+                trackingJson = trackingJson
+            };
 
-                // Capture tracking data
-                TrackingData trackingData = CaptureTrackingData();
-                string trackingJson = JsonUtility.ToJson(trackingData);
+            // Increment frames captured counter
+            framesCaptured++;
 
-                // Create frame data object with both image and tracking data
-                FrameData frameData = new FrameData
+            // Add frame to queue
+            lock (queueLock)
+            {
+                // If queue is too large, drop oldest frame
+                while (frameQueue.Count >= maxQueueSize)
                 {
-                    imageData = encodedFrame,
-                    trackingJson = trackingJson
-                };
-
-                // Increment frames captured counter
-                framesCaptured++;
-
-                // Add frame to queue
-                lock (queueLock)
-                {
-                    // If queue is too large, drop oldest frame
-                    while (frameQueue.Count >= maxQueueSize)
-                    {
-                        frameQueue.Dequeue();
-                        Debug.LogWarning("VIDEOSTREAM: Frame queue full, dropping oldest frame");
-                    }
-
-                    frameQueue.Enqueue(frameData);
-                    Debug.Log($"VIDEOSTREAM: Queued new frame. Queue size: {frameQueue.Count}");
+                    frameQueue.Dequeue();
                 }
 
+                frameQueue.Enqueue(frameData);
             }
         }
 
-        // Stop recordin if A button is pressed or after 30 seconds
+        // Stop recording if B button is pressed or after maxRecordingTime seconds
         if (isEnabled && (OVRInput.Get(OVRInput.Button.Two) || Time.time - recordingStartTime > maxRecordingTime))
         {
             recordingEndTime = Time.time;
             isEnabled = false;
             menuController.StopRecording();
+            recordingOverlay.gameObject.SetActive(false);
         }
     }
 
@@ -174,7 +168,6 @@ public class CaptureManager : MonoBehaviour
         handData.isTracked = OVRInput.GetControllerPositionTracked(controller);
         handData.wristPosition = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
         handData.wristRotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
-        Debug.Log($"Wrist Position: {handData.wristPosition.x}, {handData.wristPosition.y}, {handData.wristPosition.z}");
 
         // Check if we have access to skeletal data
         if (ovrHand != null && ovrSkeleton != null && ovrHand.IsTracked && ovrSkeleton.IsInitialized && ovrSkeleton.Bones.Count > 0)
@@ -183,7 +176,6 @@ public class CaptureManager : MonoBehaviour
 
             // Get bone data
             int boneCount = ovrSkeleton.Bones.Count;
-            Debug.Log($"VIDEOSTREAM: Capturing {boneCount} bones for {controller}");
 
             handData.bones = new TrackingData.HandData.BoneData[boneCount];
             handData.fingerPinchStates = new bool[5];
@@ -257,8 +249,6 @@ public class CaptureManager : MonoBehaviour
                                 byte[] messageType = new byte[] { 1 };
                                 stream.Write(messageType, 0, messageType.Length);
 
-                                Debug.Log($"VIDEOSTREAM: Sending frame of size {frameData.imageData.Length} bytes");
-
                                 // Send tracking data length
                                 byte[] trackingBytes = Encoding.UTF8.GetBytes(frameData.trackingJson);
                                 byte[] trackingLengthBytes = BitConverter.GetBytes(trackingBytes.Length);
@@ -274,8 +264,6 @@ public class CaptureManager : MonoBehaviour
                                 // Send image data
                                 stream.Write(frameData.imageData, 0, frameData.imageData.Length);
                                 stream.Flush();
-
-                                Debug.Log($"VIDEOSTREAM: Sent frame with {frameData.imageData.Length} bytes of image and {trackingBytes.Length} bytes of tracking data");
                             }
                             catch (Exception ex)
                             {
