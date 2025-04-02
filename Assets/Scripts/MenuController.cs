@@ -19,34 +19,30 @@ public class MenuController : MonoBehaviour
     [SerializeField] public GameObject recordMenu;
     [SerializeField] public GameObject streamMenu;
     [SerializeField] public GameObject processingMenu;
+    [SerializeField] public GameObject optionsMenu;
+
+    private bool isRecording = false;
+    private bool isWaitingForProcessingFinished = false;
 
     // All available pages
     [Serializable]
-    public enum Menu {
+    public enum Menu
+    {
         WelcomeMenu = 0,
         MainMenu = 1,
         RecordMenu = 2,
         StreamMenu = 3,
-        ProcessingMenu = 4
+        ProcessingMenu = 4,
+        OptionsMenu = 5
 
     }
     void Start()
     {
-        gameObject.SetActive(true);
-        // Hide all menus at start
-        welcomeMenu.SetActive(true);
-        mainMenu.SetActive(false);
-        recordMenu.SetActive(false);
-        streamMenu.SetActive(false);
-        processingMenu.SetActive(false);
-
-    }
-    void Awake()
-    {
+        ShowMenu((int)Menu.WelcomeMenu);
         distanceFromCamera = transform.position.z;
     }
 
-    void Update()
+    void UpdateCanvas()
     {
         // Calculate target position in front of the camera
         Vector3 forwardDirection = vrCamera.forward;
@@ -64,6 +60,22 @@ public class MenuController : MonoBehaviour
         transform.rotation = Quaternion.Euler(0, transform.rotation.eulerAngles.y + 180, 0);
 
     }
+    void UpdateUI()
+    {
+        // When the recording is finished and capturemanager sent all data and we are waiting for processing to finish, show Main Menu again
+        // We need isWaitingForProcessingFinished bool, because otherwise we would show the Main Menu every frame 
+        if (!isRecording && !captureManager.isProcessing && isWaitingForProcessingFinished)
+        {
+            ShowMenu((int)Menu.MainMenu);
+            isWaitingForProcessingFinished = false;
+        } 
+    }
+
+    void Update()
+    {
+        UpdateCanvas();
+        UpdateUI();
+    }
 
     public void HideMenu()
     {
@@ -71,7 +83,8 @@ public class MenuController : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    public void ShowMenu(int menuId) {
+    public void ShowMenu(int menuId)
+    {
         Debug.Log("Show Menu: " + menuId);
         Debug.Log("Show Menu: " + (Menu)menuId);
         // Set Menu active
@@ -82,9 +95,11 @@ public class MenuController : MonoBehaviour
         recordMenu.SetActive(false);
         streamMenu.SetActive(false);
         processingMenu.SetActive(false);
+        optionsMenu.SetActive(false);
 
         // Show the selected menu
-        switch ((Menu)menuId) {
+        switch ((Menu)menuId)
+        {
             case Menu.WelcomeMenu:
                 welcomeMenu.SetActive(true);
                 break;
@@ -100,19 +115,24 @@ public class MenuController : MonoBehaviour
             case Menu.ProcessingMenu:
                 processingMenu.SetActive(true);
                 break;
+            case Menu.OptionsMenu:
+                optionsMenu.SetActive(true);
+                break;
         }
     }
 
     public void StartRecording()
     {
-        // Hide the menu
+        isRecording = true;
         gameObject.SetActive(false);
-        // Show the recording menu
         captureManager.StartRecording();
     }
 
-    public void StopRecording() {
-        ShowMenu((int)Menu.MainMenu);
+    public void StopRecording()
+    {
+        isWaitingForProcessingFinished = true;
+        isRecording = false;
+        ShowMenu((int)Menu.ProcessingMenu);
     }
 
 

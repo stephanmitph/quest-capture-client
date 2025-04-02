@@ -14,7 +14,7 @@ public class CaptureManager : MonoBehaviour
 {
     [Header("Camera Settings")]
     [SerializeField] private WebCamTextureManager webCamTextureManager;
-    [SerializeField] public int jpegQuality = 75;
+    [SerializeField] public int jpegQuality = 100;
 
     [Header("Network Settings")]
     [SerializeField] public string serverAddress = "192.168.1.2";
@@ -47,6 +47,7 @@ public class CaptureManager : MonoBehaviour
     private float recordingEndTime = 0f;
     private float maxRecordingTime = 30f;
     private int framesCaptured = 0;
+    public bool isProcessing = false;
     private Queue<FrameData> frameQueue = new Queue<FrameData>(); // Frame queue for storing encoded images
     private object queueLock = new object();
     private Texture2D reuseTexture; // Reusable texture to avoid allocation/deallocation overhead
@@ -57,6 +58,8 @@ public class CaptureManager : MonoBehaviour
         {
             yield return null;
         }
+
+        webCamTextureManager.WebCamTexture.requestedFPS = 30;
 
         // Create a reusable texture with the webcam dimensions
         reuseTexture = new Texture2D(
@@ -130,8 +133,8 @@ public class CaptureManager : MonoBehaviour
             }
         }
 
-        // Stop recordin if any button on is pressed or after 30 seconds
-        if (isEnabled && (OVRInput.GetDown(OVRInput.Button.Any) || Time.time - recordingStartTime > maxRecordingTime))
+        // Stop recordin if A button is pressed or after 30 seconds
+        if (isEnabled && (OVRInput.Get(OVRInput.Button.Two) || Time.time - recordingStartTime > maxRecordingTime))
         {
             recordingEndTime = Time.time;
             isEnabled = false;
@@ -227,9 +230,7 @@ public class CaptureManager : MonoBehaviour
 
             try
             {
-                Debug.Log($"VIDEOSTREAM: Attempting to connect to server at {serverAddress}:{port}");
                 client.Connect(serverAddress, port);
-                Debug.Log("VIDEOSTREAM: Connected to server successfully");
 
                 using (NetworkStream stream = client.GetStream())
                 {
@@ -249,6 +250,7 @@ public class CaptureManager : MonoBehaviour
 
                         if (isEnabled && frameData != null || (!isEnabled && frameData != null && frameQueue.Count > 0))
                         {
+                            isProcessing = true;
                             try
                             {
                                 // Send message type (1 = frame data)
@@ -283,6 +285,7 @@ public class CaptureManager : MonoBehaviour
                         }
                         else
                         {
+                            isProcessing = false;
                             // Small delay if no frames to send
                             Thread.Sleep(5);
                         }
