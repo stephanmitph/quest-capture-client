@@ -4,6 +4,8 @@ public class SettingsManager : MonoBehaviour
 {
     public static SettingsManager Instance { get; private set; }
 
+    // Default settings here
+
     [Header("Network Settings")]
     public string serverIP = "172.20.10.3";  
     public int serverPort = 8080;

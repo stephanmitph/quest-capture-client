@@ -4,11 +4,6 @@ using UnityEngine;
 
 public class MenuController : MonoBehaviour
 {
-    public Transform vrCamera;  // Assign the VR Camera or XR Rig
-    public float smoothSpeed = 2.0f;
-    private Vector3 targetPosition;
-    private float distanceFromCamera;
-
     [SerializeField] private CaptureManager captureManager;
     [Header("Menu Pages")]
     [SerializeField] public GameObject welcomeMenu;
@@ -33,34 +28,11 @@ public class MenuController : MonoBehaviour
         SettingsMenu = 5
 
     }
-    void Awake()
-    {
-        distanceFromCamera = transform.position.z;
-    }
-
     void Start()
     {
         ShowMenu((int)Menu.WelcomeMenu);
     }
 
-    void UpdateCanvas()
-    {
-        // Calculate target position in front of the camera
-        Vector3 forwardDirection = vrCamera.forward;
-        forwardDirection.y = 0;
-        forwardDirection.Normalize();
-
-        // Distance from the camera calulated by distanceFromCamera
-        targetPosition = vrCamera.position + forwardDirection * distanceFromCamera;
-
-        // Smoothly move the menu to the target position
-        transform.position = Vector3.Lerp(transform.position, targetPosition, Time.deltaTime * smoothSpeed);
-
-        // Make the menu face the camera and flip it 180 degrees
-        transform.LookAt(vrCamera.position);
-        transform.rotation = Quaternion.Euler(0, transform.rotation.eulerAngles.y + 180, 0);
-
-    }
     void UpdateUI()
     {
         // When the recording is finished and capturemanager sent all data and we are waiting for processing to finish, show Main Menu again
@@ -74,7 +46,6 @@ public class MenuController : MonoBehaviour
 
     void Update()
     {
-        UpdateCanvas();
         UpdateUI();
     }
 

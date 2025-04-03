@@ -1,9 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
-// using UnityEngine.XR.Interaction.Toolkit.UI;
-// using UnityEngine.XR.Interaction.Toolkit;
 using System;
-using Oculus.Interaction;
 using Oculus.Haptics;
 
 [System.Serializable]
