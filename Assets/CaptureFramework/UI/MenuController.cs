@@ -4,7 +4,11 @@ using UnityEngine;
 
 public class MenuController : MonoBehaviour
 {
+
+    [Header("References")]
     [SerializeField] private CaptureManager captureManager;
+    [SerializeField] private NetworkManager networkManager;
+
     [Header("Menu Pages")]
     [SerializeField] public GameObject welcomeMenu;
     [SerializeField] public GameObject mainMenu;
@@ -13,7 +17,6 @@ public class MenuController : MonoBehaviour
     [SerializeField] public GameObject processingMenu;
     [SerializeField] public GameObject settingsMenu;
 
-    private bool isRecording = false;
     private bool isWaitingForProcessingFinished = false;
 
     // All available pages
@@ -31,36 +34,41 @@ public class MenuController : MonoBehaviour
     void Start()
     {
         ShowMenu((int)Menu.WelcomeMenu);
+        CaptureManager.OnRecordingStopped += OnRecordingStopped;
     }
 
-    void UpdateUI()
+    void Update()
     {
         // When the recording is finished and capturemanager sent all data and we are waiting for processing to finish, show Main Menu again
         // We need isWaitingForProcessingFinished bool, because otherwise we would show the Main Menu every frame 
-        if (!isRecording && !captureManager.isProcessing && isWaitingForProcessingFinished)
+        if (!captureManager.isRecording && !networkManager.isProcessing && isWaitingForProcessingFinished)
         {
             ShowMenu((int)Menu.MainMenu);
             isWaitingForProcessingFinished = false;
         } 
     }
 
-    void Update()
+    public void StartRecording()
     {
-        UpdateUI();
+        gameObject.SetActive(false);
+        captureManager.StartRecording();
+    }
+
+    public void OnRecordingStopped()
+    {
+        isWaitingForProcessingFinished = true;
+        ShowMenu((int)Menu.ProcessingMenu);
     }
 
     public void HideMenu()
     {
-        // Hide the menu
         gameObject.SetActive(false);
     }
 
     public void ShowMenu(int menuId)
     {
-        Debug.Log("Show Menu: " + menuId);
-        Debug.Log("Show Menu: " + (Menu)menuId);
-        // Set Menu active
         gameObject.SetActive(true);
+
         // Hide all menus
         welcomeMenu.SetActive(false);
         mainMenu.SetActive(false);
@@ -91,19 +99,5 @@ public class MenuController : MonoBehaviour
                 settingsMenu.SetActive(true);
                 break;
         }
-    }
-
-    public void StartRecording()
-    {
-        isRecording = true;
-        gameObject.SetActive(false);
-        captureManager.StartRecording();
-    }
-
-    public void StopRecording()
-    {
-        isWaitingForProcessingFinished = true;
-        isRecording = false;
-        ShowMenu((int)Menu.ProcessingMenu);
     }
 }

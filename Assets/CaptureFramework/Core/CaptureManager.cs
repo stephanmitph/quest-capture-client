@@ -1,311 +1,74 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-using PassthroughCameraSamples;
 using UnityEngine;
 
 public class CaptureManager : MonoBehaviour
 {
-    [Header("Camera Settings")]
-    [SerializeField] private WebCamTextureManager webCamTextureManager;
-    [SerializeField] public int jpegQuality = 100;
-
-    [Header("Network Settings")]
-    [SerializeField] public string serverAddress = "192.168.1.2";
-    [SerializeField] public int port = 8080;
-    [SerializeField] public float reconnectDelay = 1.0f;
-    [SerializeField] public float checkStatusDelay = 5.0f;
-    [SerializeField] public int maxQueueSize = 5000;
-
     [Header("References")]
-    [SerializeField] private OVRCameraRig cameraRig; // Reference to OVRCameraRig
     [SerializeField] private MenuController menuController; // Reference to MenuController 
     [SerializeField] private Canvas recordingOverlay; // Reference to RecordingOverlay 
 
-    [Header("Hand Tracking")]
-    [SerializeField] private OVRHand leftOVRHand;  // Reference to left OVRHand
-    [SerializeField] private OVRHand rightOVRHand; // Reference to right OVRHand
-    [SerializeField] private OVRSkeleton leftOVRSkeleton;  // Reference to left OVRSkeleton
-    [SerializeField] private OVRSkeleton rightOVRSkeleton; // Reference to right OVRSkeleton
+    public static event Action OnRecordingStopped;
 
-    // Private fields
-    private string currentIpAddress = "Not Available";
-    private bool isEnabled = false;
-    private Thread? networkThread;
-    private bool isRunning = false;
-    private float timeSinceLastFrame = 0;
-    private float timeSinceLastStatusCheck = 0;
-
-    // Recording fields
-    // Track when recording started
+    [HideInInspector] public bool isRecording = false;
     private float recordingStartTime = 0f;
     private float recordingEndTime = 0f;
     private float maxRecordingTime = 30f;
-    private int framesCaptured = 0;
-    [HideInInspector] public bool isProcessing = false;
-    private Queue<FrameData> frameQueue = new Queue<FrameData>(); // Frame queue for storing encoded images
-    private object queueLock = new object();
-    private Texture2D reuseTexture; // Reusable texture to avoid allocation/deallocation overhead
+    private int frameCount = 0;
+    private float timeSinceLastFrame = 0f;
 
-    private IEnumerator Start()
+    private FrameDataProvider frameDataProvider;
+    private NetworkManager networkManager;
+
+    public void Awake()
     {
+        frameDataProvider = GetComponent<FrameDataProvider>();
+        networkManager = GetComponent<NetworkManager>();
         recordingOverlay.gameObject.SetActive(false);
-
-        while (webCamTextureManager.WebCamTexture == null)
-        {
-            yield return null;
-        }
-
-        webCamTextureManager.WebCamTexture.requestedFPS = 30;
-
-        // Create a reusable texture with the webcam dimensions
-        reuseTexture = new Texture2D(
-            webCamTextureManager.WebCamTexture.width,
-            webCamTextureManager.WebCamTexture.height,
-            TextureFormat.RGBA32,
-            false);
-
-        // Start the network thread
-        isRunning = true;
-        networkThread = new Thread(NetworkLoop);
-        networkThread.Start();
-    }
-
-    public void StartRecording(float time = 30)
-    {
-        maxRecordingTime = time;
-        recordingStartTime = Time.time;
-        framesCaptured = 0;
-        isEnabled = true;
-        recordingOverlay.gameObject.SetActive(true);
     }
 
     void Update()
     {
-        timeSinceLastFrame += Time.deltaTime;
-
-        // Process new frame if available
-        if (isEnabled && webCamTextureManager.WebCamTexture.didUpdateThisFrame)
+        if (isRecording)
         {
-            Console.WriteLine("Frame Updated, current FPS: " + 1 / timeSinceLastFrame);
-            Debug.Log($"VIDEOSTREAM: Queue size: {frameQueue.Count}");
-            timeSinceLastFrame = 0;
-
-            // Capture image
-            reuseTexture.SetPixels32(webCamTextureManager.WebCamTexture.GetPixels32());
-            reuseTexture.Apply();
-            byte[] encodedFrame = ImageConversion.EncodeToJPG(reuseTexture, jpegQuality);
-
-            // Capture tracking data
-            TrackingData trackingData = CaptureTrackingData();
-            string trackingJson = JsonUtility.ToJson(trackingData);
-
-            // Create frame data object with both image and tracking data
-            FrameData frameData = new FrameData
+            timeSinceLastFrame += Time.deltaTime;
+            if (frameDataProvider.webCamTextureManager.WebCamTexture.didUpdateThisFrame)
             {
-                imageData = encodedFrame,
-                trackingJson = trackingJson
-            };
+                Console.WriteLine("Frame Updated, current FPS: " + 1 / timeSinceLastFrame);
+                timeSinceLastFrame = 0;
 
-            // Increment frames captured counter
-            framesCaptured++;
-
-            // Add frame to queue
-            lock (queueLock)
-            {
-                // If queue is too large, drop oldest frame
-                while (frameQueue.Count >= maxQueueSize)
-                {
-                    frameQueue.Dequeue();
-                }
-
-                frameQueue.Enqueue(frameData);
+                FrameData frameData = frameDataProvider.GetFrameData(frameCount);
+                frameCount++;
+                networkManager.EnqueueFrameData(frameData);
             }
-        }
 
-        // Stop recording if B button is pressed or after maxRecordingTime seconds
-        if (isEnabled && (OVRInput.Get(OVRInput.Button.Two) || Time.time - recordingStartTime > maxRecordingTime))
-        {
-            recordingEndTime = Time.time;
-            isEnabled = false;
-            menuController.StopRecording();
-            recordingOverlay.gameObject.SetActive(false);
-        }
-    }
-
-    private TrackingData CaptureTrackingData()
-    {
-        TrackingData data = new TrackingData();
-
-        // Set frame number
-        data.frame = framesCaptured;
-
-        // Set timestamp
-        data.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-        // Get head pose
-        Pose headPose = PassthroughCameraUtils.GetCameraPoseInWorld(PassthroughCameraEye.Left);
-        data.headPosition = new TrackingData.Vector3Serializable(headPose.position);
-        data.headRotation = new TrackingData.QuaternionSerializable(headPose.rotation);
-
-        // Capture left hand data with skeletal tracking
-        data.leftHand = CaptureHandData(leftOVRHand, leftOVRSkeleton, OVRInput.Controller.LHand);
-
-        // Capture right hand data with skeletal tracking
-        data.rightHand = CaptureHandData(rightOVRHand, rightOVRSkeleton, OVRInput.Controller.RHand);
-
-        return data;
-    }
-
-    private TrackingData.HandData CaptureHandData(OVRHand ovrHand, OVRSkeleton ovrSkeleton, OVRInput.Controller controller)
-    {
-        TrackingData.HandData handData = new TrackingData.HandData();
-
-        // Basic tracking data
-        handData.isTracked = OVRInput.GetControllerPositionTracked(controller);
-        handData.wristPosition = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
-        handData.wristRotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
-
-        // Check if we have access to skeletal data
-        if (ovrHand != null && ovrSkeleton != null && ovrHand.IsTracked && ovrSkeleton.IsInitialized && ovrSkeleton.Bones.Count > 0)
-        {
-            handData.hasSkeletalData = true;
-
-            // Get bone data
-            int boneCount = ovrSkeleton.Bones.Count;
-
-            handData.bones = new TrackingData.HandData.BoneData[boneCount];
-            handData.fingerPinchStates = new bool[5];
-            handData.fingerPinchStrengths = new float[5];
-            handData.fingerPinchConfidence = new float[5];
-
-            for (int i = 0; i < boneCount; i++)
+            // Stop recording if B button is pressed or after maxRecordingTime seconds
+            if (OVRInput.Get(OVRInput.Button.Two) || Time.time - recordingStartTime > maxRecordingTime)
             {
-                OVRBone bone = ovrSkeleton.Bones[i];
-                Vector3 position = bone.Transform.localPosition;
-                Quaternion rotation = bone.Transform.localRotation;
-
-                // Create bone data
-                handData.bones[i] = new TrackingData.HandData.BoneData
-                {
-                    id = i,
-                    position = new TrackingData.Vector3Serializable(position),
-                    rotation = new TrackingData.QuaternionSerializable(rotation)
-                };
-            }
-            for (int i = 0; i < 5; i++)
-            {
-                handData.fingerPinchStates[i] = ovrHand.GetFingerIsPinching((OVRHand.HandFinger)i);
-                handData.fingerPinchStrengths[i] = ovrHand.GetFingerPinchStrength((OVRHand.HandFinger)i);
-                handData.fingerPinchConfidence[i] = (float)ovrHand.GetFingerConfidence((OVRHand.HandFinger)i);
-            }
-        }
-        else
-        {
-            handData.hasSkeletalData = false;
-            handData.bones = new TrackingData.HandData.BoneData[0];
-            handData.fingerPinchStrengths = new float[0];
-            handData.fingerPinchConfidence = new float[0];
-        }
-
-        return handData;
-    }
-
-    private void NetworkLoop()
-    {
-        while (isRunning)
-        {
-            TcpClient client = new TcpClient();
-
-            try
-            {
-                client.Connect(serverAddress, port);
-
-                using (NetworkStream stream = client.GetStream())
-                {
-                    while (isRunning && client.Connected)
-                    {
-
-                        FrameData frameData = null;
-                        // Try to get the oldest frame from queue
-                        lock (queueLock)
-                        {
-                            if (frameQueue.Count > 0)
-                            {
-                                frameData = frameQueue.Dequeue();
-                                Debug.Log($"VIDEOSTREAM: Dequeued frame. Queue size: {frameQueue.Count}");
-                            }
-                        }
-
-                        if (isEnabled && frameData != null || (!isEnabled && frameData != null && frameQueue.Count > 0))
-                        {
-                            isProcessing = true;
-                            try
-                            {
-                                // Send message type (1 = frame data)
-                                byte[] messageType = new byte[] { 1 };
-                                stream.Write(messageType, 0, messageType.Length);
-
-                                // Send tracking data length
-                                byte[] trackingBytes = Encoding.UTF8.GetBytes(frameData.trackingJson);
-                                byte[] trackingLengthBytes = BitConverter.GetBytes(trackingBytes.Length);
-                                stream.Write(trackingLengthBytes, 0, trackingLengthBytes.Length);
-
-                                // Send tracking data
-                                stream.Write(trackingBytes, 0, trackingBytes.Length);
-
-                                // Send image data length
-                                byte[] imageLengthBytes = BitConverter.GetBytes(frameData.imageData.Length);
-                                stream.Write(imageLengthBytes, 0, imageLengthBytes.Length);
-
-                                // Send image data
-                                stream.Write(frameData.imageData, 0, frameData.imageData.Length);
-                                stream.Flush();
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.LogError($"VIDEOSTREAM: Error sending data: {ex.Message}");
-                                break;
-                            }
-                        }
-                        else
-                        {
-                            isProcessing = false;
-                            // Small delay if no frames to send
-                            Thread.Sleep(5);
-                        }
-                    }
-                }
-            }
-            catch (SocketException ex)
-            {
-                Debug.LogError($"VIDEOSTREAM: Socket error: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"VIDEOSTREAM: Connection error: {ex.Message}");
-            }
-            finally
-            {
-                if (client.Connected)
-                    client.Close();
-
-                Debug.Log($"VIDEOSTREAM: Disconnected from server. Reconnecting in {reconnectDelay} seconds...");
-                Thread.Sleep((int)(reconnectDelay * 1000));
+                StopRecording();
             }
         }
     }
 
-    private void OnDestroy()
+    public void StartRecording(float maxRecordingTime = 30)
     {
-        isRunning = false;
-        networkThread?.Join(1000);
+        frameDataProvider.StartCapture();
+        
+        isRecording = true;
+        frameCount = 0;
+        recordingStartTime = Time.time;
+        this.maxRecordingTime = maxRecordingTime;
 
-        // Clean up reusable texture
-        if (reuseTexture != null)
-            Destroy(reuseTexture);
+        networkManager.StartNetworkLoop();
+        recordingOverlay.gameObject.SetActive(true);
+    }
+
+    public void StopRecording()
+    {
+        isRecording = false;
+        recordingEndTime = Time.time;
+        recordingOverlay.gameObject.SetActive(false);
+        frameDataProvider.PauseCapture();
+        networkManager.StopNetworkLoop();
+        OnRecordingStopped.Invoke();
     }
 }

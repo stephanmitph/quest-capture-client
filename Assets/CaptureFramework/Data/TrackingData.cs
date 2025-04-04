@@ -5,7 +5,7 @@ using UnityEngine;
 [Serializable]
 public class TrackingData
 {
-    public int frame;
+    public int frameId;
     public long timestamp;
     public Vector3Serializable headPosition;
     public QuaternionSerializable headRotation;

@@ -1,23 +1,113 @@
+using System;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class SettingsManager : MonoBehaviour
 {
     public static SettingsManager Instance { get; private set; }
 
-    // Default settings here
+    // Events for settings changes
+    public event Action OnNetworkSettingsChanged;
+    public event Action OnGraphicsSettingsChanged;
+    public event Action OnCameraSettingsChanged;
 
+    // Default settings
     [Header("Network Settings")]
-    public string serverIP = "172.20.10.3";  
-    public int serverPort = 8080;
+    [SerializeField] private string _serverIP = "172.20.10.3";
+    [SerializeField] private int _serverPort = 8080;
 
     [Header("Graphics Settings")]
-    public ImageQuality imageQuality = ImageQuality._75;
-    public ImageResolution imageResolution = ImageResolution._800x600;
-    public CameraEye cameraEye = CameraEye.Left;
+    [SerializeField] private ImageQuality _imageQuality = ImageQuality._75;
+    [SerializeField] private ImageResolution _imageResolution = ImageResolution._800x600;
+    [SerializeField] private CameraEye _cameraEye = CameraEye.Left;
+
+    // Properties with event triggers
+    public string serverIP 
+    { 
+        get => _serverIP;
+        set 
+        { 
+            if (_serverIP != value)
+            {
+                _serverIP = value;
+                OnNetworkSettingsChanged?.Invoke();
+            }
+        }
+    }
+    
+    public int serverPort
+    {
+        get => _serverPort;
+        set
+        {
+            if (_serverPort != value)
+            {
+                _serverPort = value;
+                OnNetworkSettingsChanged?.Invoke();
+            }
+        }
+    }
+
+    public ImageQuality imageQuality
+    {
+        get => _imageQuality;
+        set
+        {
+            if (_imageQuality != value)
+            {
+                _imageQuality = value;
+                OnGraphicsSettingsChanged?.Invoke();
+            }
+        }
+    }
+
+    public ImageResolution imageResolution
+    {
+        get => _imageResolution;
+        set
+        {
+            if (_imageResolution != value)
+            {
+                _imageResolution = value;
+                OnGraphicsSettingsChanged?.Invoke();
+                OnCameraSettingsChanged?.Invoke();
+            }
+        }
+    }
+
+    public CameraEye cameraEye
+    {
+        get => _cameraEye;
+        set
+        {
+            if (_cameraEye != value)
+            {
+                _cameraEye = value;
+                OnCameraSettingsChanged?.Invoke();
+            }
+        }
+    }
 
     public enum ImageQuality { _100 = 100, _75 = 75, _50 = 50, _25 = 25 }
     public enum CameraEye { Left, Right }
     public enum ImageResolution { _1280x960, _800x600, _640x480, _320x240 }
+
+    public Vector2Int GetImageResolution()
+    {
+        switch (imageResolution)
+        {
+            case ImageResolution._1280x960:
+                return new Vector2Int(1280, 960);
+            case ImageResolution._800x600:
+                return new Vector2Int(800, 600);
+            case ImageResolution._640x480:
+                return new Vector2Int(640, 480);
+            case ImageResolution._320x240:
+                return new Vector2Int(320, 240);
+            default:
+                return new Vector2Int(800, 600);
+        }
+    }
 
     private void Awake()
     {

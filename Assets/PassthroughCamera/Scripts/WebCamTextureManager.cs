@@ -82,33 +82,52 @@ namespace PassthroughCameraSamples
             }
         }
 
+        /// <summary>
+        /// Reinitializes the WebCamTexture with updated settings from SettingsManager
+        /// </summary>
+        public void ResetWebCamTexture(Vector2Int resolution, PassthroughCameraEye eye)
+        {
+            RequestedResolution = resolution;
+            Eye = eye;
+            StopCoroutine(InitializeWebCamTexture());
+            if (WebCamTexture != null)
+            {
+                WebCamTexture.Stop();
+                Destroy(WebCamTexture);
+                WebCamTexture = null;
+            }
+            // Start the initialization process again
+            StartCoroutine(InitializeWebCamTexture());
+        }
+
         private IEnumerator InitializeWebCamTexture()
         {
             while (true)
             {
                 var devices = WebCamTexture.devices;
+                Eye = SettingsManager.Instance.cameraEye == SettingsManager.CameraEye.Left ? PassthroughCameraEye.Left : PassthroughCameraEye.Right;
                 if (PassthroughCameraUtils.EnsureInitialized() && PassthroughCameraUtils.CameraEyeToCameraIdMap.TryGetValue(Eye, out var cameraData))
                 {
                     if (cameraData.index < devices.Length)
                     {
                         var deviceName = devices[cameraData.index].name;
                         WebCamTexture webCamTexture;
+                        RequestedResolution = SettingsManager.Instance.GetImageResolution();
                         if (RequestedResolution == Vector2Int.zero)
                         {
                             var largestResolution = PassthroughCameraUtils.GetOutputSizes(Eye).OrderBy(static size => size.x * size.y).Last();
-                            webCamTexture = new WebCamTexture(deviceName, largestResolution.x, largestResolution.y);
+                            webCamTexture = new WebCamTexture(deviceName, largestResolution.x, largestResolution.y, 0);
                         }
                         else
                         {
-                            webCamTexture = new WebCamTexture(deviceName, RequestedResolution.x, RequestedResolution.y);
-                            
+                            webCamTexture = new WebCamTexture(deviceName, RequestedResolution.x, RequestedResolution.y, 0);
+
                         }
                         // There is a bug in the current implementation of WebCamTexture: if 'Play()' is called at the same frame the WebCamTexture was created, this error is logged and the WebCamTexture object doesn't work:
                         //     Camera2: SecurityException java.lang.SecurityException: validateClientPermissionsLocked:1325: Callers from device user 0 are not currently allowed to connect to camera "66"
                         //     Camera2: Timeout waiting to open camera.
                         // Waiting for one frame is important and prevents the bug.
                         yield return null;
-                        webCamTexture.requestedFPS = 30;
                         webCamTexture.Play();
                         var currentResolution = new Vector2Int(webCamTexture.width, webCamTexture.height);
                         if (RequestedResolution != Vector2Int.zero && RequestedResolution != currentResolution)
