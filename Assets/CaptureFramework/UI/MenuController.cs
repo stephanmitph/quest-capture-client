@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class MenuController : MonoBehaviour
 {
@@ -17,6 +18,10 @@ public class MenuController : MonoBehaviour
     [SerializeField] public GameObject processingMenu;
     [SerializeField] public GameObject settingsMenu;
 
+    [Header("UI Elements")]
+    [SerializeField] public RawImage statusImage;
+    [SerializeField] public TextMeshProUGUI statusText;
+
     private bool isWaitingForProcessingFinished = false;
 
     // All available pages
@@ -31,10 +36,15 @@ public class MenuController : MonoBehaviour
         SettingsMenu = 5
 
     }
+    void Awake()
+    {
+        CaptureManager.OnRecordingStopped += OnRecordingStopped;
+        NetworkManager.OnNetworkStatusChanged += OnNetworkStatusChanged;
+    }
+
     void Start()
     {
         ShowMenu((int)Menu.WelcomeMenu);
-        CaptureManager.OnRecordingStopped += OnRecordingStopped;
     }
 
     void Update()
@@ -45,7 +55,7 @@ public class MenuController : MonoBehaviour
         {
             ShowMenu((int)Menu.MainMenu);
             isWaitingForProcessingFinished = false;
-        } 
+        }
     }
 
     public void StartRecording()
@@ -58,6 +68,20 @@ public class MenuController : MonoBehaviour
     {
         isWaitingForProcessingFinished = true;
         ShowMenu((int)Menu.ProcessingMenu);
+    }
+
+    public void OnNetworkStatusChanged()
+    {
+        if (networkManager.isConnected)
+        {
+            statusImage.color = Color.green;
+            statusText.text = "Connected";
+        }
+        else
+        {
+            statusImage.color = Color.red;
+            statusText.text = "Disconnected";
+        }
     }
 
     public void HideMenu()

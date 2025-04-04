@@ -9,16 +9,22 @@ public class NetworkManager : MonoBehaviour
 {
     [Header("Network Settings")]
     [SerializeField] public float reconnectDelay = 1.0f;
-    [SerializeField] public float checkStatusDelay = 5.0f;
+    [SerializeField] public float checkServerStatusDelay = 5.0f;
     [SerializeField] public int maxSendQueueSize = 5000;
 
     private string serverAddress;
     private int port;
     private Thread networkThread;
+    private Thread serverStatusThread;
     private bool isNetworkLoopRunning = false;
     private Queue<FrameData> frameQueue = new Queue<FrameData>();
     private object queueLock = new object();
+    private float timeSinceLastStatusCheck = 0;
+
     [HideInInspector] public bool isProcessing = false;
+    [HideInInspector] public bool isConnected = false;
+
+    public static event Action OnNetworkStatusChanged;
 
     public void StartNetworkLoop()
     {
@@ -45,6 +51,32 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
+    void Update()
+    {
+        timeSinceLastStatusCheck += Time.deltaTime;
+        if (timeSinceLastStatusCheck >= checkServerStatusDelay)
+        {
+            timeSinceLastStatusCheck = 0;
+            CheckServerStatus();
+        }
+    }
+
+    private void CheckServerStatus()
+    {
+        try
+        {
+            using (TcpClient client = new TcpClient(SettingsManager.Instance.serverIP, SettingsManager.Instance.serverPort))
+            {
+                isConnected = true;
+                OnNetworkStatusChanged.Invoke();
+            }
+        }
+        catch
+        {
+            isConnected = false;
+            OnNetworkStatusChanged.Invoke();
+        }
+    }
     private void NetworkLoop()
     {
         while (isNetworkLoopRunning)

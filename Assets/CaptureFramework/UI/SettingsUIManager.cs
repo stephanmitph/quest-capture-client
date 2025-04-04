@@ -14,12 +14,6 @@ public class SettingsUIManager : MonoBehaviour
 
     private void Start()
     {
-        // Log all settings to the console
-        Debug.Log($"Server IP: {SettingsManager.Instance.serverIP}");
-        Debug.Log($"Server Port: {SettingsManager.Instance.serverPort}");
-        Debug.Log($"Image Quality: {SettingsManager.Instance.imageQuality}");
-        Debug.Log($"Image Resolution: {SettingsManager.Instance.imageResolution}"); 
-        Debug.Log($"Camera Eye: {SettingsManager.Instance.cameraEye}");
         // Initialize InputFields and Dropdowns with current values from SettingsManager
         serverIPInputField.text = SettingsManager.Instance.serverIP;
         serverPortInputField.text = SettingsManager.Instance.serverPort.ToString();
