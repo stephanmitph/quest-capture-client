@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public class NetworkManager : MonoBehaviour
@@ -30,10 +31,10 @@ public class NetworkManager : MonoBehaviour
     {
         serverAddress = SettingsManager.Instance.serverIP;
         port = SettingsManager.Instance.serverPort;
-        isNetworkLoopRunning = true;
-
         frameQueue.Clear();
         EnqueueFrameData(new FrameData(0));
+
+        isNetworkLoopRunning = true;
         networkThread = new Thread(NetworkLoop);
         networkThread.Start();
     }
@@ -42,7 +43,6 @@ public class NetworkManager : MonoBehaviour
     {
         EnqueueFrameData(new FrameData(2));
         isNetworkLoopRunning = false;
-        networkThread?.Join(1000);
     }
 
     public void EnqueueFrameData(FrameData frameData)
@@ -63,20 +63,23 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    private void CheckServerStatus()
+    private async void CheckServerStatus()
     {
         try
         {
-            using (TcpClient client = new TcpClient(SettingsManager.Instance.serverIP, SettingsManager.Instance.serverPort))
+            await Task.Run(() =>
             {
-                isConnected = true;
-                OnNetworkStatusChanged.Invoke();
-            }
+                using (TcpClient client = new TcpClient(SettingsManager.Instance.serverIP, SettingsManager.Instance.serverPort))
+                {
+                    isConnected = true;
+                }
+            });
+            OnNetworkStatusChanged?.Invoke();
         }
         catch
         {
             isConnected = false;
-            OnNetworkStatusChanged.Invoke();
+            OnNetworkStatusChanged?.Invoke();
         }
     }
     private void NetworkLoop()
@@ -119,7 +122,6 @@ public class NetworkManager : MonoBehaviour
                         else
                         {
                             isProcessing = false;
-                            Thread.Sleep(5);
                         }
                     }
                 }
