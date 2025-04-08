@@ -19,7 +19,8 @@ public class FrameDataProvider : MonoBehaviour
 
     void OnEnable()
     {
-        if (SettingsManager.Instance != null) {
+        if (SettingsManager.Instance != null)
+        {
             SettingsManager.Instance.OnGraphicsSettingsChanged += OnCaptureSettingsChanged;
             SettingsManager.Instance.OnCameraSettingsChanged += OnCaptureSettingsChanged;
         }
@@ -68,13 +69,15 @@ public class FrameDataProvider : MonoBehaviour
         // Capture the frame from the webcam
         reuseTexture.SetPixels(webCamTextureManager.WebCamTexture.GetPixels());
         reuseTexture.Apply();
-        Debug.LogWarning("Graphics format" + webCamTextureManager.WebCamTexture.graphicsFormat.ToString());
 
         // Convert the texture to a byte array
-        frameData.imageData = ImageConversion.EncodeToJPG(reuseTexture, (int)SettingsManager.Instance.imageQuality);
+        frameData.ImageData = ImageConversion.EncodeToJPG(reuseTexture, (int)SettingsManager.Instance.imageQuality);
 
         // Capture tracking data
-        frameData.trackingJson = JsonUtility.ToJson(trackingDataProvider.CaptureTrackingData(frameId));
+        frameData.TrackingJson = JsonUtility.ToJson(trackingDataProvider.CaptureTrackingData(frameId));
+
+        // Data message type
+        frameData.MessageType = 1;
 
         return frameData;
     }

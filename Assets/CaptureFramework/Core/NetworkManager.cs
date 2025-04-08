@@ -33,12 +33,14 @@ public class NetworkManager : MonoBehaviour
         isNetworkLoopRunning = true;
 
         frameQueue.Clear();
+        EnqueueFrameData(new FrameData(0));
         networkThread = new Thread(NetworkLoop);
         networkThread.Start();
     }
 
     public void StopNetworkLoop()
     {
+        EnqueueFrameData(new FrameData(2));
         isNetworkLoopRunning = false;
         networkThread?.Join(1000);
     }
@@ -106,7 +108,7 @@ public class NetworkManager : MonoBehaviour
                             isProcessing = true;
                             try
                             {
-                                SendFrameData(stream, frameData);
+                                SendData(stream, frameData);
                             }
                             catch (Exception ex)
                             {
@@ -141,26 +143,38 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    private void SendFrameData(NetworkStream stream, FrameData frameData)
+    private void SendData(NetworkStream stream, FrameData frameData)
     {
-        // Send message type (1 = frame data)
-        byte[] messageType = new byte[] { 1 };
+        Debug.Log("SENDING MESSAGE WITH TYPE: " + frameData.MessageType);
+        // Send message type (0 = Begin, 1 = Frame data, 2 = End)
+        byte[] messageType = new byte[] { frameData.MessageType };
         stream.Write(messageType, 0, messageType.Length);
 
+        if (frameData.MessageType == 0)
+        {
+            // Send collection ID
+            byte[] collectionIdBytes = BitConverter.GetBytes(frameData.CollectionId);
+            stream.Write(collectionIdBytes, 0, collectionIdBytes.Length);
+        }
+
         // Send tracking data length
-        byte[] trackingBytes = Encoding.UTF8.GetBytes(frameData.trackingJson);
-        byte[] trackingLengthBytes = BitConverter.GetBytes(trackingBytes.Length);
-        stream.Write(trackingLengthBytes, 0, trackingLengthBytes.Length);
+        if (frameData.MessageType == 1)
+        {
+            byte[] trackingBytes = Encoding.UTF8.GetBytes(frameData.TrackingJson);
+            byte[] trackingLengthBytes = BitConverter.GetBytes(trackingBytes.Length);
+            stream.Write(trackingLengthBytes, 0, trackingLengthBytes.Length);
 
-        // Send tracking data
-        stream.Write(trackingBytes, 0, trackingBytes.Length);
+            // Send tracking data
+            stream.Write(trackingBytes, 0, trackingBytes.Length);
 
-        // Send image data length
-        byte[] imageLengthBytes = BitConverter.GetBytes(frameData.imageData.Length);
-        stream.Write(imageLengthBytes, 0, imageLengthBytes.Length);
+            // Send image data length
+            byte[] imageLengthBytes = BitConverter.GetBytes(frameData.ImageData.Length);
+            stream.Write(imageLengthBytes, 0, imageLengthBytes.Length);
 
-        // Send image data
-        stream.Write(frameData.imageData, 0, frameData.imageData.Length);
+            // Send image data
+            stream.Write(frameData.ImageData, 0, frameData.ImageData.Length);
+        }
+
         stream.Flush();
     }
 }
