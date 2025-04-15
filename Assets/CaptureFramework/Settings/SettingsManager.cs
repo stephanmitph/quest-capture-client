@@ -21,11 +21,11 @@ public class SettingsManager : MonoBehaviour
     [SerializeField] private CameraEye _cameraEye = CameraEye.Left;
 
     // Properties with event triggers
-    public string serverIP 
-    { 
+    public string serverIP
+    {
         get => _serverIP;
-        set 
-        { 
+        set
+        {
             if (_serverIP != value)
             {
                 _serverIP = value;
@@ -33,7 +33,7 @@ public class SettingsManager : MonoBehaviour
             }
         }
     }
-    
+
     public int serverPort
     {
         get => _serverPort;
@@ -106,6 +106,30 @@ public class SettingsManager : MonoBehaviour
             default:
                 return new Vector2Int(800, 600);
         }
+    }
+
+    void Start()
+    {
+        LoadSettings();
+        Debug.Log("Settings Loaded: " + serverIP + ":" + serverPort);
+    }
+    public void LoadSettings()
+    {
+        Instance.serverIP = PlayerPrefs.GetString("ServerIP", "192.168.1.1");
+        Instance.serverPort = PlayerPrefs.GetInt("ServerPort", 8080);
+        Instance.imageQuality = (ImageQuality)PlayerPrefs.GetInt("ImageQuality", (int)ImageQuality._75);
+        Instance.imageResolution = (ImageResolution)PlayerPrefs.GetInt("ImageResolution", (int)ImageResolution._800x600);
+        Instance.cameraEye = (CameraEye)PlayerPrefs.GetInt("CameraEye", (int)CameraEye.Left);
+    }
+
+    public void SaveSettings()
+    {
+        PlayerPrefs.SetString("ServerIP", Instance.serverIP);
+        PlayerPrefs.SetInt("ServerPort", Instance.serverPort);
+        PlayerPrefs.SetInt("ImageQuality", (int)Instance.imageQuality);
+        PlayerPrefs.SetInt("ImageResolution", (int)Instance.imageResolution);
+        PlayerPrefs.SetInt("CameraEye", (int)Instance.cameraEye);
+        PlayerPrefs.Save();
     }
 
     private void Awake()

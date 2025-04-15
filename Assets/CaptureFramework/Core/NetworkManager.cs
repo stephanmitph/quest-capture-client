@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -69,9 +70,12 @@ public class NetworkManager : MonoBehaviour
         {
             await Task.Run(() =>
             {
-                using (TcpClient client = new TcpClient(SettingsManager.Instance.serverIP, SettingsManager.Instance.serverPort))
+                using (HttpClient client = new HttpClient())
                 {
-                    isConnected = true;
+                    client.Timeout = TimeSpan.FromSeconds(2);
+                    var uri = $"http://{SettingsManager.Instance.serverIP}:{SettingsManager.Instance.serverPort + 1}/health";
+                    var response = client.GetAsync(uri).Result;
+                    isConnected = response.IsSuccessStatusCode;
                 }
             });
             OnNetworkStatusChanged?.Invoke();
