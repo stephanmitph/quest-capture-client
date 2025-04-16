@@ -1,5 +1,6 @@
 
 using System;
+using System.Text.RegularExpressions;
 using PassthroughCameraSamples;
 using UnityEngine;
 
@@ -25,7 +26,24 @@ public class TrackingDataProvider : MonoBehaviour
         data.leftHand = CaptureHandData(leftOVRHand, leftOVRSkeleton, OVRInput.Controller.LHand);
         data.rightHand = CaptureHandData(rightOVRHand, rightOVRSkeleton, OVRInput.Controller.RHand);
 
+        data.leftIMUData = CaptureIMUData(OVRInput.Controller.LTouch);
+        data.rightIMUData = CaptureIMUData(OVRInput.Controller.RTouch);
+
         return data;
+    }
+
+    private TrackingData.IMUData CaptureIMUData(OVRInput.Controller controller)
+    {
+        TrackingData.IMUData imuData = new TrackingData.IMUData();
+
+        imuData.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        imuData.position = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
+        imuData.rotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
+        imuData.linearVelocity = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerVelocity(controller));
+        imuData.angularVelocity = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerAngularVelocity(controller));
+        // imuData.linearAcceleration = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerAcceleration(controller));
+
+        return imuData;
     }
 
     private TrackingData.HandData CaptureHandData(OVRHand ovrHand, OVRSkeleton ovrSkeleton, OVRInput.Controller controller)

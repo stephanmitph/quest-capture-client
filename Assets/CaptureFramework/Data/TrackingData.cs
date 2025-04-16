@@ -12,6 +12,23 @@ public class TrackingData
     public HandData leftHand;
     public HandData rightHand;
 
+    public IMUData leftIMUData;
+    public IMUData rightIMUData;
+
+    // Helper classes
+
+    [Serializable]
+    public class IMUData
+    {
+        public float timestamp;
+        public Vector3Serializable position;
+        public QuaternionSerializable rotation;
+        public Vector3Serializable linearVelocity;
+        public Vector3Serializable angularVelocity;
+        // Can be calculated from the above
+        // public Vector3Serializable linearAcceleration;
+    }
+
     [Serializable]
     public class HandData
     {
