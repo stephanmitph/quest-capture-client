@@ -11,8 +11,5 @@ public class OVRCameraRigScript : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
-        // Log Position
-        Debug.Log("Position: " + transform.position);
     }
 }

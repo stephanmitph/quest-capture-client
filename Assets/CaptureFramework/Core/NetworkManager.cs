@@ -17,7 +17,6 @@ public class NetworkManager : MonoBehaviour
     private string serverAddress;
     private int port;
     private Thread networkThread;
-    private Thread serverStatusThread;
     private bool isNetworkLoopRunning = false;
     private Queue<FrameData> frameQueue = new Queue<FrameData>();
     private object queueLock = new object();
@@ -33,7 +32,8 @@ public class NetworkManager : MonoBehaviour
         serverAddress = SettingsManager.Instance.serverIP;
         port = SettingsManager.Instance.serverPort;
         frameQueue.Clear();
-        EnqueueFrameData(new FrameData(0));
+        // Enqueue begin frame with collection ID
+        EnqueueFrameData(new FrameData(0, SettingsManager.Instance.Collection != null ? SettingsManager.Instance.Collection.id : 0));
 
         isNetworkLoopRunning = true;
         networkThread = new Thread(NetworkLoop);
@@ -42,6 +42,7 @@ public class NetworkManager : MonoBehaviour
 
     public void StopNetworkLoop()
     {
+        // Enqueue end frame with collection ID
         EnqueueFrameData(new FrameData(2));
         isNetworkLoopRunning = false;
     }

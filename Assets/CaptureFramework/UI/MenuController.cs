@@ -61,7 +61,7 @@ public class MenuController : MonoBehaviour
     public void StartRecording()
     {
         gameObject.SetActive(false);
-        captureManager.StartRecording();
+        captureManager.StartRecording(SettingsManager.Instance.Collection != null ? SettingsManager.Instance.Collection.duration : 30);
     }
 
     public void OnRecordingStopped()

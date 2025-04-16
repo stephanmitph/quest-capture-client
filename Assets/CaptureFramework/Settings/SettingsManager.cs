@@ -9,6 +9,7 @@ public class SettingsManager : MonoBehaviour
     public event Action OnNetworkSettingsChanged;
     public event Action OnGraphicsSettingsChanged;
     public event Action OnCameraSettingsChanged;
+    public event Action OnCollectionChanged;
 
     // Default settings
     [Header("Network Settings")]
@@ -19,6 +20,18 @@ public class SettingsManager : MonoBehaviour
     [SerializeField] private ImageQuality _imageQuality = ImageQuality._75;
     [SerializeField] private ImageResolution _imageResolution = ImageResolution._800x600;
     [SerializeField] private CameraEye _cameraEye = CameraEye.Left;
+
+    private Collection selectedCollection;
+
+    public Collection Collection
+    {
+        get => selectedCollection;
+        set
+        {
+            selectedCollection = value;
+            OnCollectionChanged?.Invoke();
+        }
+    }
 
     // Properties with event triggers
     public string serverIP
@@ -111,7 +124,6 @@ public class SettingsManager : MonoBehaviour
     void Start()
     {
         LoadSettings();
-        Debug.Log("Settings Loaded: " + serverIP + ":" + serverPort);
     }
     public void LoadSettings()
     {
