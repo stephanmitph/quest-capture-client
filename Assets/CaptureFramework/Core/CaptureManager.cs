@@ -52,7 +52,12 @@ public class CaptureManager : MonoBehaviour
     public void StartRecording(float maxRecordingTime = 30)
     {
         frameDataProvider.StartCapture();
-        
+        // Enable environment depth if available
+        if (frameDataProvider.environmentDepthManager != null)
+        {
+            frameDataProvider.environmentDepthManager.enabled = true;
+        }
+
         isRecording = true;
         frameCount = 0;
         recordingStartTime = Time.time;
@@ -68,6 +73,12 @@ public class CaptureManager : MonoBehaviour
         recordingEndTime = Time.time;
         recordingOverlay.gameObject.SetActive(false);
         frameDataProvider.PauseCapture();
+
+        if (frameDataProvider.environmentDepthManager != null)
+        {
+            frameDataProvider.environmentDepthManager.enabled = false;
+        }
+
         networkManager.StopNetworkLoop();
         OnRecordingStopped.Invoke();
     }

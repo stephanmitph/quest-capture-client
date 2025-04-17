@@ -180,6 +180,22 @@ public class NetworkManager : MonoBehaviour
 
             // Send image data
             stream.Write(frameData.ImageData, 0, frameData.ImageData.Length);
+
+            // Send depth data if available
+            int hasDepth = frameData.DepthData != null && frameData.DepthData.Length > 0 ? 1 : 0;
+            byte[] hasDepthData = new byte[] { (byte)hasDepth };
+            stream.Write(hasDepthData, 0, hasDepthData.Length);
+            Debug.Log("Sending depth data true?: " + hasDepth);
+
+            if (hasDepth == 1)
+            {
+                // Send depth data length
+                byte[] depthLengthBytes = BitConverter.GetBytes(frameData.DepthData.Length);
+                stream.Write(depthLengthBytes, 0, depthLengthBytes.Length);
+
+                // Send depth data
+                stream.Write(frameData.DepthData, 0, frameData.DepthData.Length);
+            }
         }
 
         stream.Flush();
