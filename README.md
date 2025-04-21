@@ -5,9 +5,20 @@ The Quest Capture server can be found here: [Quest Capture Server](https://githu
 
 This client is still in development and manually tested. If you encounter any issues or bugs, please feel free to contribute!
 
-## Demo Video
+## Features
+- Capture raw image and tracking data from Quest (3 and 3S) devices
+- Web interface for content visualization
+- Docker support for easy deployment for self-hosting
+- Tracking data per frame
+  - Head position / rotation
+  - Hand position / rotation & Individual Bones
+  - Controller position / rotation / velocity
 
-(coming soon)
+## Demo
+
+<video width="640" height="auto" controls>
+  <source src=".github/Demo.mp4" type="video/mp4">
+</video>
 
 ## Contributing
 
