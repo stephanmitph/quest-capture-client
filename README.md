@@ -16,9 +16,7 @@ This client is still in development and manually tested. If you encounter any is
 
 ## Demo
 
-<video width="640" height="auto" controls>
-  <source src=".github/Demo.mp4" type="video/mp4">
-</video>
+https://github.com/user-attachments/assets/00d62809-4a3a-4eda-8820-71a6f5b2d977
 
 ## Contributing
 
