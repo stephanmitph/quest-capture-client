@@ -6,9 +6,13 @@ using System.Threading.Tasks;
 
 public class MainMenuUIManager : MonoBehaviour
 {
+    [Header("References")]
+    [SerializeField] private NetworkManager networkManager;
+
     [Header("UI References")]
     public Button recordButton;
     public TMP_Dropdown collectionIdDropdown;
+    public TMP_Text mustConnectedText;
 
     private bool fetched = false;
     private float timeSinceLastFetch = 0;
@@ -17,6 +21,7 @@ public class MainMenuUIManager : MonoBehaviour
     private void Start()
     {
         SettingsManager.Instance.OnNetworkSettingsChanged += () => { fetched = false; };
+        NetworkManager.OnNetworkStatusChanged += OnNetworkStatusChanged;
         // Set dropdown values for Image Quality
         collectionIdDropdown.ClearOptions();
         collectionIdDropdown.AddOptions(new List<string> { "Default" });
@@ -48,6 +53,22 @@ public class MainMenuUIManager : MonoBehaviour
         }
     }
 
+    public void OnNetworkStatusChanged()
+    {
+        // Update the record button interactability based on network connection status
+        recordButton.interactable = networkManager.isConnected;
+
+        // Show or hide the mustConnectedText based on network connection status
+        if (networkManager.isConnected)
+        {
+            mustConnectedText.gameObject.SetActive(false);
+        }
+        else
+        {
+            mustConnectedText.gameObject.SetActive(true);
+        }
+    }
+
     // Called when the user changes the image quality
     public void OnCollectionIdChanged(int index)
     {
@@ -55,11 +76,5 @@ public class MainMenuUIManager : MonoBehaviour
         {
             SettingsManager.Instance.Collection = collections[index];
         }
-    }
-
-    // Called when the user changes the camera eye (Left/Right)
-    private void OnCameraEyeChanged(int value)
-    {
-        SettingsManager.Instance.cameraEye = value == 0 ? SettingsManager.CameraEye.Left : SettingsManager.CameraEye.Right;
     }
 }
