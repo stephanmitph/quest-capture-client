@@ -152,7 +152,7 @@ public class NetworkManager : MonoBehaviour
 
     private void SendData(NetworkStream stream, FrameData frameData)
     {
-        Debug.Log("SENDING MESSAGE WITH TYPE: " + frameData.MessageType);
+        Debug.Log("SENDING MESSAGE WITH TYPE: " + frameData.MessageType + " and collection ID: " + frameData.CollectionId);
         // Send message type (0 = Begin, 1 = Frame data, 2 = End)
         byte[] messageType = new byte[] { frameData.MessageType };
         stream.Write(messageType, 0, messageType.Length);

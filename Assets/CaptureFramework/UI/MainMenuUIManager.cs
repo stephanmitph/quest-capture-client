@@ -53,6 +53,12 @@ public class MainMenuUIManager : MonoBehaviour
         }
     }
 
+    public void ReloadCollections()
+    {
+        // Reset the fetched flag and time since last fetch
+        fetched = false;
+    }
+
     public void OnNetworkStatusChanged()
     {
         // Update the record button interactability based on network connection status
