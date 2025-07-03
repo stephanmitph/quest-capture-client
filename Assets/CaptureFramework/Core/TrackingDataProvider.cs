@@ -1,5 +1,6 @@
 
 using System;
+using System.ComponentModel;
 using System.Text.RegularExpressions;
 using PassthroughCameraSamples;
 using UnityEngine;
@@ -7,10 +8,10 @@ using UnityEngine;
 public class TrackingDataProvider : MonoBehaviour
 {
     [Header("Hand Tracking")]
-    [SerializeField] private OVRHand leftOVRHand;  
-    [SerializeField] private OVRHand rightOVRHand; 
-    [SerializeField] private OVRSkeleton leftOVRSkeleton;  
-    [SerializeField] private OVRSkeleton rightOVRSkeleton; 
+    [SerializeField] private OVRHand leftOVRHand;
+    [SerializeField] private OVRHand rightOVRHand;
+    [SerializeField] private OVRSkeleton leftOVRSkeleton;
+    [SerializeField] private OVRSkeleton rightOVRSkeleton;
 
     public TrackingData CaptureTrackingData(int frameId)
     {
@@ -36,12 +37,15 @@ public class TrackingDataProvider : MonoBehaviour
     {
         TrackingData.IMUData imuData = new TrackingData.IMUData();
 
-        imuData.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        imuData.position = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
-        imuData.rotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
-        imuData.linearVelocity = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerVelocity(controller));
-        imuData.angularVelocity = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerAngularVelocity(controller));
-        // imuData.linearAcceleration = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerAcceleration(controller));
+        imuData.isTracked = OVRInput.GetControllerPositionTracked(controller);
+        if (imuData.isTracked)
+        {
+            imuData.position = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
+            imuData.rotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
+            imuData.linearVelocity = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerVelocity(controller));
+            imuData.angularVelocity = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerAngularVelocity(controller));
+            // imuData.linearAcceleration = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerAcceleration(controller));
+        }
 
         return imuData;
     }
@@ -50,11 +54,15 @@ public class TrackingDataProvider : MonoBehaviour
     {
         TrackingData.HandData handData = new TrackingData.HandData();
 
-        handData.isTracked = OVRInput.GetControllerPositionTracked(controller);
-        handData.wristPosition = new TrackingData.Vector3Serializable(OVRInput.GetLocalControllerPosition(controller));
-        handData.wristRotation = new TrackingData.QuaternionSerializable(OVRInput.GetLocalControllerRotation(controller));
+        handData.isTracked = ovrHand != null && ovrHand.IsTracked;
+        if (handData.isTracked)
+        {
+            handData.position = new TrackingData.Vector3Serializable(ovrHand.transform.position);
+            handData.rotation = new TrackingData.QuaternionSerializable(ovrHand.transform.rotation);
+        }
 
-        if (ovrHand != null && ovrSkeleton != null && ovrHand.IsTracked && ovrSkeleton.IsInitialized && ovrSkeleton.Bones.Count > 0)
+        handData.hasSkeletalData = false;
+        if (handData.isTracked && ovrSkeleton != null && ovrSkeleton.IsInitialized && ovrSkeleton.Bones.Count > 0)
         {
             handData.hasSkeletalData = true;
 

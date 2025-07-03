@@ -20,7 +20,7 @@ public class TrackingData
     [Serializable]
     public class IMUData
     {
-        public float timestamp;
+        public bool isTracked;
         public Vector3Serializable position;
         public QuaternionSerializable rotation;
         public Vector3Serializable linearVelocity;
@@ -33,8 +33,8 @@ public class TrackingData
     public class HandData
     {
         public bool isTracked;
-        public Vector3Serializable wristPosition;
-        public QuaternionSerializable wristRotation;
+        public Vector3Serializable position; // Position of wrist
+        public QuaternionSerializable rotation; // Rotation of wrist
 
         // New skeletal data
         public bool hasSkeletalData;
