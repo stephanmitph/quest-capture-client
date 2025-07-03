@@ -3,7 +3,7 @@ The Quest Capture Client Unity App enables you to capture your device's camera f
 
 **Companion Server:** Setup the [Quest Capture Server](https://github.com/stephanmitph/quest-capture-server). Follow the instructions to get your own instance running. Configure this server in the settings of the client app.
 
-**⚠️ Development Status:** This server is actively developed and manually tested.
+**⚠️ Development Status:** This client is actively developed and manually tested.
 
 ## Features
 
