@@ -19,6 +19,10 @@ The Quest Capture Client Unity App enables you to capture your device's camera f
 - **Hand Tracking**: Individual finger bone positions and rotations
 - **Controller Tracking**: Position, rotation, and velocity data
 
+## Planned features
+- [ ] Include depth data 
+- [ ] Ability to include audio in recordings
+
 ## Demo
 
 https://github.com/user-attachments/assets/00d62809-4a3a-4eda-8820-71a6f5b2d977
